@@ -18,3 +18,7 @@ subprojects {
         manifest.attributes provider: 'gradle'
     }
 }
+
+task wrapper(type: Wrapper) {
+    gradleVersion = '1.10'
+}
