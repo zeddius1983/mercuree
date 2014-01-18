@@ -1,0 +1,31 @@
+buildscript {
+    repositories {
+        maven { url "http://repo.spring.io/libs-snapshot" }
+        mavenLocal()
+    }
+    dependencies {
+        classpath("org.springframework.boot:spring-boot-gradle-plugin:0.5.0.M7")
+    }
+}
+
+apply plugin: 'spring-boot'
+
+jar {
+    manifest {
+        attributes 'Implementation-Title': 'Mercuree Bootstrap', 'Implementation-Version': version
+    }
+}
+
+repositories {
+    maven { url "http://repo.spring.io/libs-snapshot" }
+}
+
+dependencies {
+    compile('org.codehaus.groovy:groovy-all:2.2.1')
+    compile("org.springframework.boot:spring-boot-starter-web:0.5.0.M7")
+    compile("org.springframework.boot:spring-boot-starter-security:0.5.0.M7")
+    compile("org.springframework.boot:spring-boot-starter-actuator:0.5.0.M7")
+    compile("com.fasterxml.jackson.core:jackson-databind")
+}
+
+test { systemProperties 'property': 'value' }

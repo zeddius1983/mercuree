@@ -2,6 +2,7 @@ subprojects {
     apply plugin: 'groovy'
 
     repositories {
+        mavenLocal()
         mavenCentral()
     }
 
@@ -9,6 +10,8 @@ subprojects {
         testCompile 'junit:junit:4.11'
     }
 
+    sourceCompatibility = 1.7
+    targetCompatibility = 1.7
     version = '1.0'
 
     jar {
