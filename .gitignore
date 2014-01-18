@@ -6,4 +6,6 @@
 /bin
 .cache
 *.iml
+*.ipl
+*.iws
 /.idea
