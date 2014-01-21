@@ -14,11 +14,17 @@
  * limitations under the License.
  */
 
-package org.mercuree.bootstrap.main;
+package org.mercuree.bootstrap;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
-import org.springframework.stereotype.Controller;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.ComponentScan;
+import org.springframework.context.annotation.Configuration;
+import reactor.core.Environment;
+import reactor.core.Reactor;
+import reactor.core.spec.Reactors;
+import reactor.spring.context.config.EnableReactor;
 
 /**
  * Spring Boot startup class.
@@ -26,9 +32,19 @@ import org.springframework.stereotype.Controller;
  *
  * @author Alexander Valyugin
  */
-@Controller
+@Configuration
+@EnableReactor
+@ComponentScan
 @EnableAutoConfiguration
 public class Application {
+
+    @Bean
+    Reactor rootReactor(Environment env) {
+        return Reactors.reactor()
+                .env(env)
+                .dispatcher(Environment.THREAD_POOL)
+                .get();
+    }
 
     public static void main(String[] args) {
         SpringApplication.run(Application.class, args);

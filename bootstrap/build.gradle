@@ -22,6 +22,7 @@ repositories {
 
 dependencies {
     compile('org.codehaus.groovy:groovy-all:2.2.1')
+    compile("org.projectreactor:reactor-spring:1.0.0.RELEASE")
     compile("org.springframework.boot:spring-boot-starter-web:0.5.0.M7")
     compile("org.springframework.boot:spring-boot-starter-actuator:0.5.0.M7")
     compile("com.fasterxml.jackson.core:jackson-databind")

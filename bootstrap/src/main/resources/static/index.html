@@ -19,8 +19,8 @@
     <meta charset="utf-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="">
-    <meta name="author" content="">
+    <meta name="description" content="Starter page">
+    <meta name="author" content="Alexander Valyugin">
     <link rel="shortcut icon" href="../../docs-assets/ico/favicon.png">
 
     <title>Mercuree Bootstrap</title>
@@ -49,7 +49,8 @@
                 <span class="icon-bar"></span>
                 <span class="icon-bar"></span>
             </button>
-            <a class="navbar-brand" href="#">Project name</a>
+            <a class="navbar-brand" href="#">Mercuree <span class="label label-default">1.0.0</span> <span id="status" class="label label-default">Unknown</span>
+            </a>
         </div>
         <div class="navbar-collapse collapse">
             <form class="navbar-form navbar-right" role="form">
@@ -114,7 +115,7 @@
     <hr>
 
     <footer>
-        <p>&copy; Company 2014</p>
+        <p>&copy; Mercuree 2004</p>
     </footer>
 </div>
 <!-- /container -->
@@ -125,5 +126,22 @@
 <!-- Placed at the end of the document so the pages load faster -->
 <script src="https://code.jquery.com/jquery-1.10.2.min.js"></script>
 <script src="js/bootstrap.min.js"></script>
+
+<script type="text/javascript">
+$(document).ready(function() {
+    $.ajax({
+        url: "/greeting"
+    }).then(function(data) {
+       if (data == "ok") {
+          $("#status").attr("class", "label label-success");
+       } else if (data == "error") {
+          $("#status").attr("class", "label label-danger");
+       } else {
+          $("#status").attr("class", "label label-default");
+       }
+       $("#status").text(data);
+    });
+});
+</script>
 </body>
 </html>

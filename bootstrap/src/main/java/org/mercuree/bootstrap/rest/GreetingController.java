@@ -16,10 +16,14 @@
 
 package org.mercuree.bootstrap.rest;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
+import reactor.core.Reactor;
+import reactor.event.Event;
+import reactor.spring.annotation.Selector;
 
 /**
  * TODO: javadoc
@@ -30,10 +34,20 @@ import org.springframework.web.bind.annotation.ResponseBody;
 @Controller
 public class GreetingController {
 
+    @Autowired
+    private Reactor reactor;
+
     @RequestMapping("/greeting")
     @ResponseBody
     public String greeting(@RequestParam(value = "name", required = false, defaultValue = "World") String name) {
-        return "Hello, " + name;
+        String response =  Math.random() < 0.5 ? "ok" : "error";
+        reactor.notify("test.topic", Event.wrap("/greeting/" + response));
+        return response;
+    }
+
+    @Selector(value = "test.topic", reactor = "@rootReactor")
+    public void handleTestTopic(Event<String> event) {
+        System.out.println(event);
     }
 
 }
