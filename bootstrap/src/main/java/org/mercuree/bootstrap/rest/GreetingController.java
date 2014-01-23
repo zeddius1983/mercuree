@@ -18,6 +18,8 @@ package org.mercuree.bootstrap.rest;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
+import org.springframework.ui.Model;
+import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
@@ -43,6 +45,28 @@ public class GreetingController {
         String response =  Math.random() < 0.5 ? "ok" : "error";
         reactor.notify("test.topic", Event.wrap("/greeting/" + response));
         return response;
+    }
+
+    @RequestMapping("/")
+    public String index() {
+        return "home";
+    }
+
+    @RequestMapping("/home")
+    public String home() {
+        return "home";
+    }
+
+    @RequestMapping("/hello")
+    public String hello(@RequestParam(value="name", required=false, defaultValue="World") String name, Model model) {
+        System.out.println("/hello");
+        model.addAttribute("name", name);
+        return "hello";
+    }
+
+    @ModelAttribute("health")
+    public String health() {
+        return greeting("");
     }
 
     @Selector(value = "test.topic", reactor = "@rootReactor")
