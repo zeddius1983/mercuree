@@ -4,7 +4,7 @@ buildscript {
         mavenLocal()
     }
     dependencies {
-        classpath("org.springframework.boot:spring-boot-gradle-plugin:0.5.0.M7")
+        classpath("org.springframework.boot:spring-boot-gradle-plugin:1.0.0.RC1")
     }
 }
 
@@ -21,7 +21,8 @@ repositories {
 }
 
 dependencies {
-    compile('org.codehaus.groovy:groovy-all:2.2.1')
+    compile project(':evolution')
+
     compile("org.projectreactor:reactor-spring:1.0.0.RELEASE")
     compile("org.springframework.boot:spring-boot-starter-web:1.0.0.RC1")
     compile("org.springframework.boot:spring-boot-starter-actuator:1.0.0.RC1")
