@@ -16,10 +16,6 @@ jar {
     }
 }
 
-repositories {
-    maven { url "http://repo.spring.io/libs-snapshot" }
-}
-
 dependencies {
     compile project(':evolution')
 
