@@ -24,6 +24,7 @@ import org.springframework.core.env.ConfigurableEnvironment;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * TODO: javadoc
@@ -38,7 +39,7 @@ public class EvolutionConfigurationProperties {
 
     private String controlTableName = "EVOLUTION_INFO";
 
-    private List<Map<String, String>> dataSources;
+    private Map<String, List<String>> dataSources;
 
     public boolean isEnabled() {
         return enabled;
@@ -56,11 +57,8 @@ public class EvolutionConfigurationProperties {
         this.controlTableName = controlTableName;
     }
 
-    public List<Map<String, String>> getDataSources() {
-        return dataSources;
-    }
+    public Map<String, List<String>> getDataSources() { return dataSources; }
 
-    public void setDataSources(List<Map<String, String>> dataSources) {
-        this.dataSources = dataSources;
-    }
+    public void setDataSources(Map<String, List<String>> dataSources) { this.dataSources = dataSources; }
+
 }

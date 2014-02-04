@@ -13,13 +13,26 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-jar {
-    manifest {
-        attributes 'Implementation-Title': 'Mercuree Evolution', 'Implementation-Version': version
-    }
-}
 
-dependencies {
-    compile("com.typesafe.slick:slick_2.10:2.0.0")
-    compile("org.scalatest:scalatest_2.10:2.0")
+package org.mercuree.transformations.core
+
+import org.scalatest.FlatSpec
+import scala.io.Source
+import org.mercuree.evolution.core.Transformation
+
+/**
+ * TODO: javadoc
+ * <p>
+ *
+ * @author Alexander Valyugin
+ */
+class TransformationSpec extends FlatSpec {
+
+  private val noNameSpecifiedXml = <TRANSFORMATION><UPDATE>script</UPDATE></TRANSFORMATION>
+
+  "A transformation" should "be assigned a default name" in {
+    val t = Transformation.fromXML(noNameSpecifiedXml)
+    assert(t.name.nonEmpty)
+  }
+
 }

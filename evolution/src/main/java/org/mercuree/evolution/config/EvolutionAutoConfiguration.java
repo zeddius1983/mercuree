@@ -18,6 +18,9 @@ package org.mercuree.evolution.config;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.BeansException;
+import org.springframework.beans.factory.BeanFactory;
+import org.springframework.beans.factory.BeanFactoryAware;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.AutoConfigureAfter;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
@@ -26,10 +29,12 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.env.ConfigurableEnvironment;
+import org.springframework.core.io.support.ResourcePatternResolver;
 import org.springframework.jdbc.core.JdbcTemplate;
 
 import javax.annotation.PostConstruct;
 import javax.sql.DataSource;
+import java.util.List;
 import java.util.Properties;
 
 /**
@@ -48,12 +53,21 @@ public class EvolutionAutoConfiguration {
     @Autowired
     private EvolutionConfigurationProperties properties;
 
+    @Autowired
+    private List<DataSource> dataSources;
+
+    @Autowired
+    private ResourcePatternResolver resourcePatternResolver;
+
     @PostConstruct
     public void init() {
+        // @DependsOn, @Estimated, @NeverChanges, @Update, @Rollback
         if (!properties.isEnabled()) {
             logger.info("Database evolution is currently disabled");
             return;
         }
+        System.out.println(resourcePatternResolver);
+        System.out.println(dataSources);
         System.out.println(properties.getDataSources());
         logger.info("Starting database evolution");
         logger.info("Database evolution is finished");

@@ -1,5 +1,5 @@
 subprojects {
-    apply plugin: 'groovy'
+    apply plugin: 'scala'
 
     repositories {
         mavenLocal()
@@ -12,12 +12,14 @@ subprojects {
         springVersion     = "4.0.0.RELEASE"
         springBootVersion = "1.0.0.RC1"
         groovyVersion     = "2.2.1"
+        scalaVersion      = "2.10.3"
         junitVersion      = "4.11"
         slf4jVersion      = "1.7.5"
         logbackVersion    = "1.0.13"
     }
 
     dependencies {
+        compile("org.scala-lang:scala-library:${scalaVersion}")
         compile("org.codehaus.groovy:groovy-all:${groovyVersion}")
         compile("org.springframework:spring-context:${springVersion}")
         compile("org.springframework:spring-jdbc:${springVersion}")

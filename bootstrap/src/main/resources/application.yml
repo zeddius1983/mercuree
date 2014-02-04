@@ -18,10 +18,8 @@ mercuree.evolution:
   enabled: true
   controlTableName: dbEvolution
   dataSources:
-    - dataSource: db1
-      path: /evolution
-    - dataSource: db2
-      path: /evolution
+    db1: [/evolution/3.4, /evolution/3.5]
+    db2: /evolution/3.6
 server:
   port: 8081
 management:
