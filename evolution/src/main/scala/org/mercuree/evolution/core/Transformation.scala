@@ -16,6 +16,10 @@
 
 package org.mercuree.evolution.core
 
+import scala.util.Try
+import scala.io.Source
+import scala.xml.{Null, UnprefixedAttribute}
+
 /**
  * Represents a database transformation.
  * <p>
@@ -26,13 +30,28 @@ case class Transformation(name: String, sqlUpdate: String, sqlUpdateHash: String
 
 object Transformation {
 
-  private val NAME_ATTR = "@names"
+  private val NAME_ATTR = "@name"
   private val ENABLED_ATTR = "@enabled"
+  private val ROOT_TAG = "TRANSFORMATION"
   private val UPDATE_TAG = "UPDATE"
   private val ROLLBACK_TAG = "ROLLBACK"
 
   def tupled: ((String, String, String)) => Transformation = {
     case Tuple3(x1, x2, x3) => apply(x1, x2, x3)
+  }
+
+  /**
+   * Loads the transformation from the sql script file provided in the given format.
+   *
+   * @param path the file path may be classpath or absolute path.
+   * @return transformation instance.
+   */
+  def loadFromFile(path: String): Try[Transformation] = {
+    for {
+      url <- Try(getClass().getResource(path))
+      source <- Try(Source.fromURL(url)) orElse Try(Source.fromFile(path))
+      xml <- Try(scala.xml.XML.loadString(source.mkString.replace("--<", "<")))
+    } yield fromXML(xml)
   }
 
   /**
@@ -42,9 +61,12 @@ object Transformation {
    * @return transformation instance.
    */
   def fromXML(xml: scala.xml.Elem) : Transformation = {
+    if (xml.label != ROOT_TAG) {
+      throw TransformationException(s"Transformation root element must be <$ROOT_TAG> tag")
+    }
     val name = (xml \ NAME_ATTR).text match {
       case s if s.trim.nonEmpty => s
-      case _ => "default"
+      case _ => throw TransformationException(s"Transformation name must be specified with $NAME_ATTR attribute")
     }
     val enabled = (xml \ ENABLED_ATTR).text match {
       case "false" => false

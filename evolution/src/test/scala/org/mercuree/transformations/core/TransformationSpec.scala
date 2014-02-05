@@ -17,8 +17,7 @@
 package org.mercuree.transformations.core
 
 import org.scalatest.FlatSpec
-import scala.io.Source
-import org.mercuree.evolution.core.Transformation
+import org.mercuree.evolution.core.{TransformationException, Transformation}
 
 /**
  * TODO: javadoc
@@ -28,11 +27,24 @@ import org.mercuree.evolution.core.Transformation
  */
 class TransformationSpec extends FlatSpec {
 
+  private val invalidRootTagXml = <EVOLUTION></EVOLUTION>
   private val noNameSpecifiedXml = <TRANSFORMATION><UPDATE>script</UPDATE></TRANSFORMATION>
 
-  "A transformation" should "be assigned a default name" in {
-    val t = Transformation.fromXML(noNameSpecifiedXml)
-    assert(t.name.nonEmpty)
+  "A transformation" should "throw an exception if root tag is invalid" in {
+    intercept[TransformationException] {
+      Transformation.fromXML(invalidRootTagXml)
+    }
+  }
+
+  it should "throw an exception if name is not specified" in {
+    intercept[TransformationException] {
+      Transformation.fromXML(noNameSpecifiedXml)
+    }
+  }
+
+  it should "be loaded from file on a classpath" in {
+    val t = Transformation.loadFromFile("/transformations/create_table.sql")
+    println(t)
   }
 
 }
