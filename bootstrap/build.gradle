@@ -17,7 +17,7 @@ jar {
 }
 
 dependencies {
-    compile project(':evolution')
+    compile project(':transformations')
 
     compile("org.projectreactor:reactor-spring:1.0.0.RELEASE")
     compile("org.springframework.boot:spring-boot-starter-web:1.0.0.RC1")
