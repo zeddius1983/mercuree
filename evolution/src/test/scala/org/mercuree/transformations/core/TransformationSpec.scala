@@ -30,21 +30,16 @@ class TransformationSpec extends FlatSpec {
   private val invalidRootTagXml = <EVOLUTION></EVOLUTION>
   private val noNameSpecifiedXml = <TRANSFORMATION><UPDATE>script</UPDATE></TRANSFORMATION>
 
-  "A transformation" should "throw an exception if root tag is invalid" in {
-    intercept[TransformationException] {
-      Transformation.fromXML(invalidRootTagXml)
-    }
+  "A transformation construction" should "fail if the root tag is invalid" in {
+    assert(Transformation.loadFromXML(invalidRootTagXml).isFailure)
   }
 
-  it should "throw an exception if name is not specified" in {
-    intercept[TransformationException] {
-      Transformation.fromXML(noNameSpecifiedXml)
-    }
+  it should "fail if the name is not specified" in {
+    assert(Transformation.loadFromXML(noNameSpecifiedXml).isFailure)
   }
 
   it should "be loaded from file on a classpath" in {
-    val t = Transformation.loadFromFile("/transformations/create_table.sql")
-    println(t)
+    assert(Transformation.loadFromFile("/transformations/create_table.sql").isSuccess)
   }
 
 }

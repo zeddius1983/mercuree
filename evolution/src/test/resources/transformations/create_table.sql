@@ -1,4 +1,4 @@
---<TRANSFORMATION name="JIRA-1222">
+--<TRANSFORMATION names="JIRA-1222">
 --<UPDATE estimated="12m" reapplyIfModified="true">
 CREATE TABLE User (
     id bigint(20) NOT NULL AUTO_INCREMENT,

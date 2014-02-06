@@ -51,7 +51,7 @@ object Transformation {
       url <- Try(getClass().getResource(path))
       source <- Try(Source.fromURL(url)) orElse Try(Source.fromFile(path))
       xml <- Try(scala.xml.XML.loadString(source.mkString.replace("--<", "<")))
-    } yield fromXML(xml)
+    } yield fromXML(xml, Some(path))
   }
 
   /**
@@ -60,13 +60,22 @@ object Transformation {
    * @param xml string.
    * @return transformation instance.
    */
-  def fromXML(xml: scala.xml.Elem) : Transformation = {
+  def loadFromXML(xml: scala.xml.Elem, defaultName: Option[String] = None) : Try[Transformation] = {
+    Try(fromXML(xml, defaultName))
+  }
+
+  private def fromXML(xml: scala.xml.Elem, defaultName: Option[String] = None) : Transformation = {
     if (xml.label != ROOT_TAG) {
       throw TransformationException(s"Transformation root element must be <$ROOT_TAG> tag")
     }
     val name = (xml \ NAME_ATTR).text match {
       case s if s.trim.nonEmpty => s
-      case _ => throw TransformationException(s"Transformation name must be specified with $NAME_ATTR attribute")
+      case _ => {
+        if (defaultName.nonEmpty)
+          defaultName.get
+        else
+          throw TransformationException(s"Transformation name must be specified with $NAME_ATTR attribute")
+      }
     }
     val enabled = (xml \ ENABLED_ATTR).text match {
       case "false" => false

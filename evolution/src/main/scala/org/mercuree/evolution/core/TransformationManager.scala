@@ -16,22 +16,18 @@
 
 package org.mercuree.evolution.core
 
-import scala.slick.driver.H2Driver.simple._
-
 /**
- * Database table schema definition. The table that keeps all database transformations applied.
+ * TODO: javadoc
  * <p>
  *
  * @author Alexander Valyugin
  */
-class Transformations(tag: Tag) extends Table[Transformation](tag, Transformations.TABLE_NAME) {
-  def name = column[String]("name", O.PrimaryKey)
-  def sqlUpdate = column[String]("sql_update", O.DBType("text"))
-  def sqlUpdateHash = column[String]("sql_update_hash", O.DBType("char(128)"))
+class TransformationManager(val path: String) {
 
-  def * = (name, sqlUpdate, sqlUpdateHash) <> (Transformation.tupled, Transformation.unapply)
 }
 
-object Transformations {
-  val TABLE_NAME = "database_transformations"
+object TransformationManager {
+  def apply(path: String, tableName: String = TransformationTable.DEFAULT_TABLE_NAME) = {
+    new TransformationManager(path)
+  }
 }
