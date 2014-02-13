@@ -17,7 +17,6 @@
 package org.mercuree.transformations.core
 
 import org.scalatest.FlatSpec
-import org.mercuree.transformations.core.{TransformationException, Transformation}
 
 /**
  * TODO: javadoc

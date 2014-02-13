@@ -16,23 +16,29 @@
 
 package org.mercuree.transformations.core
 
-import scala.slick.driver.H2Driver.simple._
-import TransformationTable._
+import org.scalatest.FlatSpec
+import scala.slick.driver.H2Driver
 
 /**
- * Database table schema definition. The table that keeps all database transformations applied.
+ * TODO: javadoc
  * <p>
  *
  * @author Alexander Valyugin
  */
-class TransformationTable(tag: Tag, tableName: String = DEFAULT_TABLE_NAME) extends Table[Transformation](tag, tableName) {
-  def name = column[String]("name", O.PrimaryKey)
-  def sqlUpdate = column[String]("sql_update", O.DBType("text"))
-  def sqlUpdateHash = column[String]("sql_update_hash", O.DBType("char(128)"))
+class TransformationDaoSpec extends FlatSpec {
 
-  def * = (name, sqlUpdate, sqlUpdateHash) <> (Transformation.tupled, Transformation.unapply)
-}
+  "Transformation" should "be loaded from file on a classpath" in {
+    val dao = new TransformationDao(H2Driver)
+    import dao.driver.simple._
 
-object TransformationTable {
-  final val DEFAULT_TABLE_NAME = "database_transformations"
+    val db = Database.forURL("jdbc:h2:mem:hello", driver = "org.h2.Driver")
+    db.withSession {
+      implicit session =>
+        Transformation.loadFromFile("/transformations/create_table.sql").map(dao.apply(_))
+        Transformation.loadFromFile("/transformations/alter_table.sql").map(dao.apply(_))
+        dao.transformations foreach (println(_))
+    }
+
+  }
+
 }

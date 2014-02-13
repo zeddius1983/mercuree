@@ -14,20 +14,14 @@
  * limitations under the License.
  */
 
-package org.mercuree.transformations.core
+// We highly recommended that you always add a status listener just
+// after the last import statement and before all other statements
+statusListener(OnConsoleStatusListener)
 
-/**
- * TODO: javadoc
- * <p>
- *
- * @author Alexander Valyugin
- */
-class TransformationManager(val path: String) {
-
+appender("CONSOLE", ConsoleAppender) {
+    encoder(PatternLayoutEncoder) {
+        pattern = "%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"
+    }
 }
 
-object TransformationManager {
-  def apply(path: String, tableName: String = TransformationTable.DEFAULT_TABLE_NAME) = {
-    new TransformationManager(path)
-  }
-}
+root(INFO, ["CONSOLE"])

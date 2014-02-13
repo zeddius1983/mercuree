@@ -18,7 +18,6 @@ package org.mercuree.transformations.core
 
 import scala.util.Try
 import scala.io.Source
-import scala.xml.{Null, UnprefixedAttribute}
 
 /**
  * Represents a database transformation.
