@@ -18,25 +18,28 @@ package org.mercuree.transformations.core
 
 import org.scalatest.FlatSpec
 import scala.slick.driver.H2Driver
+import scala.slick.jdbc.{StaticQuery => Sql}
+import scala.util.Try
 
 /**
- * TODO: javadoc
+ * TransformationDao test spec.
  * <p>
  *
  * @author Alexander Valyugin
  */
 class TransformationDaoSpec extends FlatSpec {
 
-  "Transformation" should "be loaded from file on a classpath" in {
-    val dao = new TransformationDao(H2Driver)
-    import dao.driver.simple._
+  val transformations = new TransformationDao(H2Driver)
+  import transformations.driver.simple._
 
-    val db = Database.forURL("jdbc:h2:mem:hello", driver = "org.h2.Driver")
-    db.withSession {
+  "Transformation system table" should "be created if absent" in {
+    val t = Transformation("test", "", "", "", "")
+    val db = Database.forURL("jdbc:h2:mem:test", driver = "org.h2.Driver")
+    db.withTransaction {
       implicit session =>
-        Transformation.loadFromFile("/transformations/create_table.sql").map(dao.apply(_))
-        Transformation.loadFromFile("/transformations/alter_table.sql").map(dao.apply(_))
-        dao.transformations foreach (println(_))
+        assert(Try(transformations.table.exists.run).isFailure)
+        transformations << t << t // Check table is not attempted to be created twice
+        assert(transformations.table.exists.run)
     }
 
   }

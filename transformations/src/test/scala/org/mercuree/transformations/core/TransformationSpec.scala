@@ -17,9 +17,10 @@
 package org.mercuree.transformations.core
 
 import org.scalatest.FlatSpec
+import scala.util.Try
 
 /**
- * TODO: javadoc
+ * Transformation test spec.
  * <p>
  *
  * @author Alexander Valyugin
@@ -30,15 +31,16 @@ class TransformationSpec extends FlatSpec {
   private val noNameSpecifiedXml = <TRANSFORMATION><UPDATE>script</UPDATE></TRANSFORMATION>
 
   "A transformation construction" should "fail if the root tag is invalid" in {
-    assert(Transformation.loadFromXML(invalidRootTagXml).isFailure)
+    assert(Try(Transformation.parseXML(invalidRootTagXml)).isFailure)
   }
 
   it should "fail if the name is not specified" in {
-    assert(Transformation.loadFromXML(noNameSpecifiedXml).isFailure)
+    assert(Try(Transformation.parseXML(noNameSpecifiedXml)).isFailure)
   }
 
-  it should "be loaded from file on a classpath" in {
-    assert(Transformation.loadFromFile("/transformations/create_table.sql").isSuccess)
+  "A transformation" should "be loaded from the file on a classpath" in {
+    val url = getClass.getResource("/transformations/create_table.sql")
+    assert(Try(Transformation.fromURL(url)).isSuccess)
   }
 
 }

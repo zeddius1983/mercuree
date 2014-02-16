@@ -17,7 +17,9 @@
 package org.mercuree.transformations.core
 
 import scala.util.Try
-import scala.io.Source
+import scala.io.{BufferedSource, Source}
+import org.springframework.core.io.Resource
+import java.net.URL
 
 /**
  * Represents a database transformation.
@@ -25,7 +27,8 @@ import scala.io.Source
  *
  * @author Alexander Valyugin
  */
-case class Transformation(name: String, sqlUpdate: String, sqlUpdateHash: String)
+case class Transformation(name: String, sqlUpdate: String, sqlUpdateHash: String,
+                           sqlRollback: String, sqlRollbackHash: String)
 
 object Transformation {
 
@@ -35,35 +38,24 @@ object Transformation {
   private val UPDATE_TAG = "UPDATE"
   private val ROLLBACK_TAG = "ROLLBACK"
 
-  def tupled: ((String, String, String)) => Transformation = {
-    case Tuple3(x1, x2, x3) => apply(x1, x2, x3)
+  def tupled: ((String, String, String, String, String)) => Transformation = {
+    case Tuple5(x1, x2, x3, x4, x5) => apply(x1, x2, x3, x4, x5)
   }
 
   /**
-   * Loads the transformation from the sql script file provided in the given format.
+   * Loads the transformation from the given url.
+   * <p>
    *
-   * @param path the file path may be classpath or absolute path.
+   * @param url file path.
    * @return transformation instance.
    */
-  def loadFromFile(path: String): Try[Transformation] = {
-    for {
-      url <- Try(getClass().getResource(path))
-      source <- Try(Source.fromURL(url)) orElse Try(Source.fromFile(path))
-      xml <- Try(scala.xml.XML.loadString(source.mkString.replace("--<", "<")))
-    } yield fromXML(xml, Some(path))
+  def fromURL(url: URL): Transformation = {
+    val source = Source.fromURL(url)
+    val xml = scala.xml.XML.loadString(source.mkString.replace("--<", "<"))
+    parseXML(xml, Some(url.getFile))
   }
 
-  /**
-   * Parses the given xml string and returns the transformation object from it.
-   *
-   * @param xml string.
-   * @return transformation instance.
-   */
-  def loadFromXML(xml: scala.xml.Elem, defaultName: Option[String] = None) : Try[Transformation] = {
-    Try(fromXML(xml, defaultName))
-  }
-
-  private def fromXML(xml: scala.xml.Elem, defaultName: Option[String] = None) : Transformation = {
+  def parseXML(xml: scala.xml.Elem, defaultName: Option[String] = None) : Transformation = {
     if (xml.label != ROOT_TAG) {
       throw TransformationException(s"Transformation root element must be <$ROOT_TAG> tag")
     }
@@ -88,7 +80,8 @@ object Transformation {
     // Rollback script is not mandatory
     val sqlRollback = (xml \\ ROLLBACK_TAG).text
 
-    Transformation(name, sqlUpdate, sqlUpdate.hashCode.toString)
+    Transformation(name, sqlUpdate, sqlUpdate.hashCode.toString,
+      sqlRollback, sqlRollback.hashCode.toString)
   }
 
 }

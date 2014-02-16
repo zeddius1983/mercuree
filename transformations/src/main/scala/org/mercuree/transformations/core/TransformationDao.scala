@@ -19,10 +19,10 @@ package org.mercuree.transformations.core
 import scala.slick.driver.JdbcProfile
 import scala.slick.jdbc.meta.MTable
 import org.slf4j.LoggerFactory
-import scala.slick.jdbc.{GetResult, StaticQuery => Sql}
+import scala.slick.jdbc.{StaticQuery => Sql}
 
 /**
- * Data access object for {@link Transformation}.
+ * Transformations dao manager.
  * <p>
  *
  * @author Alexander Valyugin
@@ -46,28 +46,56 @@ class TransformationDao(val driver: JdbcProfile, val systemTableName: String = T
 
     def sqlUpdateHash = column[String]("sql_update_hash", O.DBType("char(128)"))
 
-    def * = (name, sqlUpdate, sqlUpdateHash) <>(Transformation.tupled, Transformation.unapply)
+    def sqlRollback = column[String]("sql_rollback", O.DBType("text"))
+
+    def sqlRollbackHash = column[String]("sql_rollback_hash", O.DBType("char(128)"))
+
+    def * = (name, sqlUpdate, sqlUpdateHash, sqlRollback, sqlRollbackHash) <>(Transformation.tupled, Transformation.unapply)
   }
 
-  val transformations = TableQuery[TransformationTable]((tag: Tag) => new TransformationTable(tag, systemTableName))
+  val table = TableQuery[TransformationTable]((tag: Tag) => new TransformationTable(tag, systemTableName))
 
-  def apply(transformation: Transformation)(implicit session: Session): Unit = {
+  /**
+   * Applies the transformation to the given database.
+   * <p>
+   * @param transformation the transformation to apply.
+   * @param session implicit db session param.
+   * @return the applied transformation.
+   */
+  def <<(transformation: Transformation)(implicit session: Session): TransformationDao = {
     if (!MTable.getTables.list.exists(_.name.name == systemTableName)) {
-      transformations.ddl.create
+      logger.info(s"Transformation table [$systemTableName] is missing!")
+      table.ddl.create
       logger.info(s"Created transformation table [$systemTableName]")
     }
 
-    val oldTransformationQuery = transformations.filter(_.name.toString() == transformation.name)
+    val oldTransformationQuery = table.where(_.name === transformation.name)
     oldTransformationQuery.firstOption match {
       case Some(t) if t.sqlUpdateHash != transformation.sqlUpdateHash => {
-        oldTransformationQuery.update(transformation)
+        logger.info(s"Transformation update script '${transformation.name}' modification detected")
+        Sql.updateNA(t.sqlRollback)
+        logger.info(s"Transformation '${transformation.name}' rolled back")
+
+        logger.info(s"Applying transformation '${transformation.name}'")
         Sql.updateNA(transformation.sqlUpdate)
+        logger.info(s"Tansformation '${transformation.name}' applied")
+
+        oldTransformationQuery.update(transformation)
+      }
+      case Some(t) if t.sqlRollbackHash != transformation.sqlRollbackHash => {
+        logger.info(s"Transformation rollback script '${transformation.name}' modification detected")
+        oldTransformationQuery.update(transformation)
+        logger.info(s"Transformation '${transformation.name}' rollback script updated")
       }
       case None => {
-        transformations += transformation
+        logger.info(s"Applying transformation '${transformation.name}' for the first time")
         Sql.updateNA(transformation.sqlUpdate)
+        table += transformation
+        logger.info(s"Tansformation '${transformation.name}' applied")
       }
+      case _ => logger.info(s"Transformation '${transformation.name}' is already applied")
     }
+    this
   }
 
 }
