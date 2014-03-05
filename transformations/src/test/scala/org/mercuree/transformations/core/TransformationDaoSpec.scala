@@ -41,7 +41,6 @@ class TransformationDaoSpec extends FlatSpec {
         transformations << t << t // Check table is not attempted to be created twice
         assert(transformations.table.exists.run)
     }
-
   }
 
 }

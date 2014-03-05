@@ -20,6 +20,8 @@ import scala.slick.driver.JdbcProfile
 import scala.slick.jdbc.meta.MTable
 import org.slf4j.LoggerFactory
 import scala.slick.jdbc.{StaticQuery => Sql}
+import scala.Some
+import org.mercuree.transformations.core.Transformation.Supplement
 
 /**
  * Transformations dao manager.
@@ -50,7 +52,7 @@ class TransformationDao(val driver: JdbcProfile, val systemTableName: String = T
 
     def sqlRollbackHash = column[String]("sql_rollback_hash", O.DBType("char(128)"))
 
-    def * = (name, sqlUpdate, sqlUpdateHash, sqlRollback, sqlRollbackHash) <>(Transformation.tupled, Transformation.unapply)
+    def * = (name, sqlUpdate, sqlUpdateHash, sqlRollback, sqlRollbackHash) <>(Transformation.fromTuple, Transformation.unapply)
   }
 
   val table = TableQuery[TransformationTable]((tag: Tag) => new TransformationTable(tag, systemTableName))

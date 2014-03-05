@@ -16,9 +16,7 @@
 
 package org.mercuree.transformations.core
 
-import scala.util.Try
-import scala.io.{BufferedSource, Source}
-import org.springframework.core.io.Resource
+import scala.io.Source
 import java.net.URL
 
 /**
@@ -32,13 +30,16 @@ case class Transformation(name: String, sqlUpdate: String, sqlUpdateHash: String
 
 object Transformation {
 
+  case class Supplement(enabled: Boolean, runInTransaction: Boolean)
+
   private val NAME_ATTR = "@name"
   private val ENABLED_ATTR = "@enabled"
+  private val RUN_IN_TRAN_ATTR = "@runInTransaction"
   private val ROOT_TAG = "TRANSFORMATION"
   private val UPDATE_TAG = "UPDATE"
   private val ROLLBACK_TAG = "ROLLBACK"
 
-  def tupled: ((String, String, String, String, String)) => Transformation = {
+  def fromTuple: ((String, String, String, String, String)) => Transformation = {
     case Tuple5(x1, x2, x3, x4, x5) => apply(x1, x2, x3, x4, x5)
   }
 
@@ -49,28 +50,27 @@ object Transformation {
    * @param url file path.
    * @return transformation instance.
    */
-  def fromURL(url: URL): Transformation = {
+  def fromURL(url: URL): (Transformation, Supplement) = {
     val source = Source.fromURL(url)
     val xml = scala.xml.XML.loadString(source.mkString.replace("--<", "<"))
     parseXML(xml, Some(url.getFile))
   }
 
-  def parseXML(xml: scala.xml.Elem, defaultName: Option[String] = None) : Transformation = {
+  def parseXML(xml: scala.xml.Elem, defaultName: Option[String] = None) : (Transformation, Supplement) = {
     if (xml.label != ROOT_TAG) {
       throw TransformationException(s"Transformation root element must be <$ROOT_TAG> tag")
     }
     val name = (xml \ NAME_ATTR).text match {
       case s if s.trim.nonEmpty => s
-      case _ => {
-        if (defaultName.nonEmpty)
-          defaultName.get
-        else
-          throw TransformationException(s"Transformation name must be specified with $NAME_ATTR attribute")
-      }
+      case _ => defaultName.getOrElse(throw TransformationException(s"Transformation name must be specified with $NAME_ATTR attribute"))
     }
-    val enabled = (xml \ ENABLED_ATTR).text match {
+    val enabled = (xml \ ENABLED_ATTR).text.trim match {
       case "false" => false
       case _ => true
+    }
+    val runInTransaction = (xml \ RUN_IN_TRAN_ATTR).text.trim match {
+      case "true" => true
+      case _ => false
     }
     // Update script is mandatory
     val sqlUpdate = (xml \\ UPDATE_TAG).text match {
@@ -80,8 +80,10 @@ object Transformation {
     // Rollback script is not mandatory
     val sqlRollback = (xml \\ ROLLBACK_TAG).text
 
-    Transformation(name, sqlUpdate, sqlUpdate.hashCode.toString,
-      sqlRollback, sqlRollback.hashCode.toString)
+    (Transformation(name, sqlUpdate, sqlUpdate.hashCode.toString,
+      sqlRollback, sqlRollback.hashCode.toString),
+      Supplement(enabled, runInTransaction)
+      )
   }
 
 }

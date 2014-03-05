@@ -18,10 +18,11 @@
 // after the last import statement and before all other statements
 statusListener(OnConsoleStatusListener)
 
-appender("CONSOLE", ConsoleAppender) {
+scan()
+
+appender("STDOUT", ConsoleAppender) {
     encoder(PatternLayoutEncoder) {
-        pattern = "%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"
+        pattern = "%d [%8.8thread] [%-5level] [%logger{0}] %msg%n"
     }
 }
-
-root(INFO, ["CONSOLE"])
+root(DEBUG, ["STDOUT"])
