@@ -22,10 +22,18 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 /**
+ * TODO: javadoc
+ * <p/>
  *
+ * @author Alexander Valyugin
  */
-@Target({ ElementType.METHOD, ElementType.TYPE })
+@Target({ ElementType.METHOD, ElementType.TYPE, ElementType.PACKAGE })
 @Retention(RetentionPolicy.RUNTIME)
-public @interface Log {
+public @interface TraceFormat {
 
+    String beforeFormat() default "";
+
+    String afterFormat() default "";
+
+    Formatter[] formatters() default { };
 }

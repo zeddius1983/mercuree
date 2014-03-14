@@ -13,19 +13,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+jar {
+    manifest {
+        attributes 'Implementation-Title': 'Mercuree Toolkit', 'Implementation-Version': version
+    }
+}
 
-package org.mercuree.toolkit.logging;
-
-import java.lang.annotation.ElementType;
-import java.lang.annotation.Retention;
-import java.lang.annotation.RetentionPolicy;
-import java.lang.annotation.Target;
-
-/**
- *
- */
-@Target({ ElementType.METHOD, ElementType.TYPE })
-@Retention(RetentionPolicy.RUNTIME)
-public @interface Log {
-
+dependencies {
+    compile("org.springframework:spring-aop:${springVersion}")
+    compile("org.aspectj:aspectjrt:1.7.4")
+    compile("org.aspectj:aspectjweaver:1.7.4")
 }

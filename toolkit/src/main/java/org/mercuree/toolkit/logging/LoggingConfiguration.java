@@ -16,16 +16,20 @@
 
 package org.mercuree.toolkit.logging;
 
-import java.lang.annotation.ElementType;
-import java.lang.annotation.Retention;
-import java.lang.annotation.RetentionPolicy;
-import java.lang.annotation.Target;
-
 /**
+ * TODO: javadoc
+ * <p/>
  *
+ * @author Alexander Valyugin
  */
-@Target({ ElementType.METHOD, ElementType.TYPE })
-@Retention(RetentionPolicy.RUNTIME)
-public @interface Log {
+public class LoggingConfiguration {
+
+    private static final String formatIn = "[$flow][$elapsed] $methodName($arg1.name)";
+
+    private static final String formatOut = "[$flow][$elapsed] $methodName($arg1.name) -> $returnValue";
+
+    public static LoggingConfiguration setDefaultFormat(String format) {
+        return null;
+    }
 
 }

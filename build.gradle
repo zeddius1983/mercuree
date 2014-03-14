@@ -9,7 +9,7 @@ subprojects {
 
     ext {
         aspectjVersion    = "1.7.4"
-        springVersion     = "4.0.0.RELEASE"
+        springVersion     = "4.0.2.RELEASE"
         springBootVersion = "1.0.0.RC1"
         groovyVersion     = "2.2.1"
         scalaVersion      = "2.10.3"

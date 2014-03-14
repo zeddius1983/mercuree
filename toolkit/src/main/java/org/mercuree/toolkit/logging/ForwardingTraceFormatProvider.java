@@ -16,16 +16,28 @@
 
 package org.mercuree.toolkit.logging;
 
-import java.lang.annotation.ElementType;
-import java.lang.annotation.Retention;
-import java.lang.annotation.RetentionPolicy;
-import java.lang.annotation.Target;
-
 /**
+ * TODO: javadoc
+ * <p/>
  *
+ * @author Alexander Valyugin
  */
-@Target({ ElementType.METHOD, ElementType.TYPE })
-@Retention(RetentionPolicy.RUNTIME)
-public @interface Log {
+public class ForwardingTraceFormatProvider implements TraceFormatProvider {
+
+    private final TraceFormatProvider delegate;
+
+    public ForwardingTraceFormatProvider(TraceFormatProvider delegate) {
+        this.delegate = delegate;
+    }
+
+    @Override
+    public String getBeforeFormat() {
+        return delegate.getBeforeFormat();
+    }
+
+    @Override
+    public String getAfterFormat() {
+        return delegate.getAfterFormat();
+    }
 
 }
