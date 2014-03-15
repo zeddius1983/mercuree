@@ -16,10 +16,10 @@
 
 package org.mercuree.transformations.core
 
-import scala.slick.jdbc.JdbcBackend._
 import scala.slick.driver.JdbcProfile
-import org.mercuree.transformations.core.Transformation.Supplement
-import scala.util.Try
+import org.slf4j.LoggerFactory
+import scala.slick.jdbc.JdbcBackend.Database
+import scala.util.{Success, Failure, Try}
 
 /**
  * TODO: javadoc
@@ -27,29 +27,70 @@ import scala.util.Try
  *
  * @author Alexander Valyugin
  */
-class Transformations(val db: Database, val driver: JdbcProfile, val transformations: Seq[(Transformation, Supplement)]) {
+class Transformations(val transformations: Seq[(Transformation, TransformationAttributes)]) {
 
-  val transformationDao = new TransformationDao(driver)
+  val logger = LoggerFactory.getLogger(getClass)
 
-  def run(): Unit = {
-    val (enabledList, disabledList) = transformations.partition(_._2.enabled)
-    disabledList.foreach(transformationWithSupplement => {
-      println(s"Transformation ${transformationWithSupplement._1.name} is disabled and won't be ran")
-    })
+  /**
+   * Executes transformations.
+   */
+  def execute(db: Database, driver: JdbcProfile): Unit = {
+    val transformationDao = new TransformationDao(driver)
+    import transformationDao.driver.simple._
 
-    enabledList.foreach(transformationWithSupplement => {
-      val (t, s) = transformationWithSupplement
-
-      def applyTransformation()(session: Session): Unit = transformationDao << t
-
-      if (s.runInTransaction) {
-        db.withTransaction(applyTransformation())
-      } else {
-        db.withSession(applyTransformation())
+    def rollback(transformation: Transformation)(implicit session: Session): Unit = {
+      Try(transformationDao.rollback(transformation)).recover {
+        case e => logger.error(s"Transformation '${transformation.name}' rollback failed due to ", e)
       }
+    }
 
-    })
+    def apply(transformation: Transformation)(implicit session: Session): Unit = {
+      Try(transformationDao.apply(transformation)).recover {
+        case e => logger.error(s"Transformation '${transformation.name}' is not applied due to ", e)
+      }
+    }
 
+    db.withSession {
+      implicit session =>
+        transformationDao.ensureSystemTable
+
+        // First rollback disabled transformations
+        val (enabledList, disabledList) = transformations.partition(_._2.enabled)
+        disabledList.foreach {
+          transformationWithSupplement =>
+            session.withTransaction {
+              val name = transformationWithSupplement._1.name
+              logger.info(s"Transformation '${name}' is disabled")
+              rollback(transformationWithSupplement._1)
+            }
+        }
+
+        enabledList.foreach(transformationWithSupplement => {
+          val (t, s) = transformationWithSupplement
+
+          if (s.runInTransaction) {
+            session.withTransaction {
+              apply(t)
+            }
+          } else {
+            apply(t)
+          }
+
+        })
+
+        // Rollback all deleted transformations
+        val databaseTransformations = transformationDao.all.map(t => t.name).toSet
+        val localTransformations = enabledList.map(t => t._1.name).toSet
+        val removedTransformationNames = databaseTransformations -- localTransformations
+        val transformationsToRollback = transformationDao.all.filter(t => removedTransformationNames.contains(t.name))
+        transformationsToRollback.foreach {
+          t =>
+            session.withTransaction {
+              logger.info(s"Transformation '${t.name}' has been removed")
+              rollback(t)
+            }
+        }
+    }
   }
 
 }

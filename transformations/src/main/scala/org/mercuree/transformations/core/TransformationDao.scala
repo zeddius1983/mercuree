@@ -21,7 +21,7 @@ import scala.slick.jdbc.meta.MTable
 import org.slf4j.LoggerFactory
 import scala.slick.jdbc.{StaticQuery => Sql}
 import scala.Some
-import org.mercuree.transformations.core.Transformation.Supplement
+import scala.util.{Failure, Success, Try}
 
 /**
  * Transformations dao manager.
@@ -29,11 +29,11 @@ import org.mercuree.transformations.core.Transformation.Supplement
  *
  * @author Alexander Valyugin
  */
-class TransformationDao(val driver: JdbcProfile, val systemTableName: String = TransformationDao.DEFAULT_TABLE_NAME) {
+class TransformationDao(val driver: JdbcProfile, val systemTableName: String = TransformationDao.DefaultTableName) {
 
   import driver.simple._
 
-  final val logger = LoggerFactory.getLogger(getClass())
+  val logger = LoggerFactory.getLogger(getClass)
 
   /**
    * Database table schema definition. The table that keeps all database transformations applied.
@@ -58,28 +58,45 @@ class TransformationDao(val driver: JdbcProfile, val systemTableName: String = T
   val table = TableQuery[TransformationTable]((tag: Tag) => new TransformationTable(tag, systemTableName))
 
   /**
+   * Returns all available transformations from the system table.
+   * <p>
+   * @param session implicit db session param.
+   * @return a sequence of transformations.
+   */
+  def all()(implicit session: Session): Seq[Transformation] = {
+    table.list
+  }
+
+  /**
+   * Checks that the system table exists and creates it if necessary.
+   * <p>
+   * @param session implicit session.
+   */
+  def ensureSystemTable(implicit session: Session): Unit = {
+    if (!MTable.getTables.list.exists(_.name.name == systemTableName)) {
+      logger.info(s"Transformation table [$systemTableName] is missing!")
+      table.ddl.create
+      logger.info(s"Created transformation table [$systemTableName]")
+    }
+  }
+
+  /**
    * Applies the transformation to the given database.
    * <p>
    * @param transformation the transformation to apply.
    * @param session implicit db session param.
    * @return the applied transformation.
    */
-  def <<(transformation: Transformation)(implicit session: Session): TransformationDao = {
-    if (!MTable.getTables.list.exists(_.name.name == systemTableName)) {
-      logger.info(s"Transformation table [$systemTableName] is missing!")
-      table.ddl.create
-      logger.info(s"Created transformation table [$systemTableName]")
-    }
-
+  def apply(transformation: Transformation)(implicit session: Session): Unit = {
     val oldTransformationQuery = table.where(_.name === transformation.name)
     oldTransformationQuery.firstOption match {
       case Some(t) if t.sqlUpdateHash != transformation.sqlUpdateHash => {
         logger.info(s"Transformation update script '${transformation.name}' modification detected")
-        Sql.updateNA(t.sqlRollback)
+        Sql.updateNA(t.sqlRollback).execute
         logger.info(s"Transformation '${transformation.name}' rolled back")
 
         logger.info(s"Applying transformation '${transformation.name}'")
-        Sql.updateNA(transformation.sqlUpdate)
+        Sql.updateNA(transformation.sqlUpdate).execute
         logger.info(s"Tansformation '${transformation.name}' applied")
 
         oldTransformationQuery.update(transformation)
@@ -91,19 +108,34 @@ class TransformationDao(val driver: JdbcProfile, val systemTableName: String = T
       }
       case None => {
         logger.info(s"Applying transformation '${transformation.name}' for the first time")
-        Sql.updateNA(transformation.sqlUpdate)
+        Sql.updateNA(transformation.sqlUpdate).execute
         table += transformation
         logger.info(s"Tansformation '${transformation.name}' applied")
       }
       case _ => logger.info(s"Transformation '${transformation.name}' is already applied")
     }
-    this
+  }
+
+  /**
+   * Rolls back the given transformation if only it has been previously applied.
+   * <p>
+   * @param transformation to roll back.
+   * @param session implicit session param.
+   */
+  def rollback(transformation: Transformation)(implicit session: Session): Unit = {
+    val oldTransformationQuery = table.where(_.name === transformation.name)
+    oldTransformationQuery.firstOption.map { t =>
+        logger.info(s"Rolling back '${t.name}' transformation")
+        Sql.updateNA(t.sqlRollback).execute
+        oldTransformationQuery.delete
+        logger.info(s"Transformation '${transformation.name}' rolled back")
+    }
   }
 
 }
 
 object TransformationDao {
 
-  final val DEFAULT_TABLE_NAME = "database_transformations"
+  val DefaultTableName = "database_transformations"
 
 }

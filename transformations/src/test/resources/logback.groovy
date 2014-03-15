@@ -25,4 +25,4 @@ appender("STDOUT", ConsoleAppender) {
         pattern = "%d [%8.8thread] [%-5level] [%logger{0}] %msg%n"
     }
 }
-root(DEBUG, ["STDOUT"])
+root(INFO, ["STDOUT"])
