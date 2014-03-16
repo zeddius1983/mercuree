@@ -50,8 +50,8 @@ class TransformationsSpec extends FlatSpec {
 
   "Disabled transformations" should "not be applied" in {
     val t = Transformation("test", InsertPersonSql, "", "", "")
-    val s = TransformationAttributes(false, true)
-    val transformations = new Transformations(List((t, s)))
+    t.attributes = Some(TransformationAttributes(false, true))
+    val transformations = new Transformations(List(t))
 
     db.withSession {
       implicit session: Session =>
@@ -63,9 +63,12 @@ class TransformationsSpec extends FlatSpec {
   }
 
   "Disabled transformations" should "be rolled back if had been applied previously" in {
-    val t = Transformation("test", InsertPersonSql, "", DeletePersonSql, "")
-    val transformationsFirst = new Transformations(List((t, TransformationAttributes(true, true))))
-    val transformationsSecond = new Transformations(List((t, TransformationAttributes(false, true))))
+    val t1 = Transformation("test", InsertPersonSql, "", DeletePersonSql, "")
+    t1.attributes = Some(TransformationAttributes(true, true))
+    val t2 = Transformation("test", InsertPersonSql, "", DeletePersonSql, "")
+    t2.attributes = Some(TransformationAttributes(false, true))
+    val transformationsFirst = new Transformations(List(t1))
+    val transformationsSecond = new Transformations(List(t2))
 
     db.withSession {
       implicit session: Session =>
@@ -79,8 +82,8 @@ class TransformationsSpec extends FlatSpec {
 
   "Transformations running in session" should "be applied properly" in {
     val t = Transformation("test", InsertPersonSql + FailingSql, "", "", "")
-    val s = TransformationAttributes(true, false)
-    val transformations = new Transformations(List((t, s)))
+    t.attributes = Some(TransformationAttributes(true, false))
+    val transformations = new Transformations(List(t))
 
     db.withSession {
       implicit session: Session =>
@@ -93,8 +96,8 @@ class TransformationsSpec extends FlatSpec {
 
   "Transformations running in transaction" should "be applied properly" in {
     val t = Transformation("test", InsertPersonSql + FailingSql, "", "", "")
-    val s = TransformationAttributes(true, true)
-    val transformations = new Transformations(List((t, s)))
+    t.attributes = Some(TransformationAttributes(true, true))
+    val transformations = new Transformations(List(t))
 
     db.withSession {
       implicit session: Session =>
@@ -107,7 +110,8 @@ class TransformationsSpec extends FlatSpec {
 
   "Removed transformations" should "be rolled back if had been applied previously" in {
     val t = Transformation("test", InsertPersonSql, "", DeletePersonSql, "")
-    val transformationsFirst = new Transformations(List((t, TransformationAttributes(true, true))))
+    t.attributes = Some(TransformationAttributes(true, true))
+    val transformationsFirst = new Transformations(List(t))
     val transformationsSecond = new Transformations(List())
 
     db.withSession {

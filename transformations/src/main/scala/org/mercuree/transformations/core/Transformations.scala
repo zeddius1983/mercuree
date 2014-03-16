@@ -27,7 +27,7 @@ import scala.util.{Success, Failure, Try}
  *
  * @author Alexander Valyugin
  */
-class Transformations(val transformations: Seq[(Transformation, TransformationAttributes)]) {
+class Transformations(val transformations: Seq[Transformation]) {
 
   val logger = LoggerFactory.getLogger(getClass)
 
@@ -55,32 +55,30 @@ class Transformations(val transformations: Seq[(Transformation, TransformationAt
         transformationDao.ensureSystemTable
 
         // First rollback disabled transformations
-        val (enabledList, disabledList) = transformations.partition(_._2.enabled)
+        val (enabledList, disabledList) = transformations.partition(_.attributes.get.enabled)
         disabledList.foreach {
-          transformationWithSupplement =>
+          t =>
             session.withTransaction {
-              val name = transformationWithSupplement._1.name
-              logger.info(s"Transformation '${name}' is disabled")
-              rollback(transformationWithSupplement._1)
+              logger.info(s"Transformation '${t.name}' is disabled")
+              rollback(t)
             }
         }
 
-        enabledList.foreach(transformationWithSupplement => {
-          val (t, s) = transformationWithSupplement
-
-          if (s.runInTransaction) {
-            session.withTransaction {
+        enabledList.foreach {
+          t =>
+            if (t.attributes.get.runInTransaction) {
+              session.withTransaction {
+                apply(t)
+              }
+            } else {
               apply(t)
             }
-          } else {
-            apply(t)
-          }
 
-        })
+        }
 
         // Rollback all deleted transformations
-        val databaseTransformations = transformationDao.all.map(t => t.name).toSet
-        val localTransformations = enabledList.map(t => t._1.name).toSet
+        val databaseTransformations = transformationDao.all.map(_.name).toSet
+        val localTransformations = enabledList.map(_.name).toSet
         val removedTransformationNames = databaseTransformations -- localTransformations
         val transformationsToRollback = transformationDao.all.filter(t => removedTransformationNames.contains(t.name))
         transformationsToRollback.foreach {
