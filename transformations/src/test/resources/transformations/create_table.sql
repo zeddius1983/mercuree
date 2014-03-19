@@ -1,5 +1,5 @@
---<TRANSFORMATION names="JIRA-1222">
---<UPDATE estimated="12m" reapplyIfModified="true">
+--<transformation>
+--<update>
 CREATE TABLE User (
     id bigint(20) NOT NULL AUTO_INCREMENT,
     email varchar(255) NOT NULL,
@@ -8,10 +8,10 @@ CREATE TABLE User (
     isAdmin boolean NOT NULL,
     PRIMARY KEY (id)
 );
---</UPDATE>
+--</update>
 
---<ROLLBACK>
+--<rollback>
 DROP TABLE User;
---</ROLLBACK>
+--</rollback>
 
---</TRANSFORMATION>
+--</transformation>

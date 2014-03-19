@@ -18,35 +18,27 @@ package org.mercuree.transformations.core
 
 import scala.io.Source
 import java.net.URL
+import java.security.MessageDigest
 
 /**
  * Represents a database transformation.
- * <p>
  *
  * @author Alexander Valyugin
  */
 case class Transformation(name: String, sqlUpdate: String, sqlUpdateHash: String,
                           sqlRollback: String, sqlRollbackHash: String) {
-  var attributes: Option[TransformationAttributes] = None
-}
+  class RootAttributes(var enabled: Boolean)
 
-/**
- * Supplementary data that is used to control the transformation execution but is
- * not persisted within the control table.
- * <p>
- *
- * @author Alexander Valyugin
- */
-case class TransformationAttributes(enabled: Boolean, runInTransaction: Boolean)
+  var rootAttributes = new RootAttributes(true)
+}
 
 object Transformation {
 
   private val NameAttr = "@name"
   private val EnabledAttr = "@enabled"
-  private val RunInTransactionAttr = "@runInTransaction"
-  private val RootTag = "TRANSFORMATION"
-  private val UpdateTag = "UPDATE"
-  private val RollbackTag = "ROLLBACK"
+  private val RootTag = "transformation"
+  private val UpdateTag = "update"
+  private val RollbackTag = "rollback"
 
   def fromTuple: ((String, String, String, String, String)) => Transformation = {
     case Tuple5(x1, x2, x3, x4, x5) => apply(x1, x2, x3, x4, x5)
@@ -54,48 +46,69 @@ object Transformation {
 
   /**
    * Loads the transformation from the given url.
-   * <p>
    *
    * @param url file path.
-   * @return transformation instance.
+   * @param defaultName default transformation name.
+   * @return transformation object.
    */
-  def fromURL(url: URL): Transformation = {
-    val source = Source.fromURL(url)
-    val xml = scala.xml.XML.loadString(source.mkString.replace("--<", "<"))
-    parseXML(xml, Some(url.getFile))
+  def fromURL(url: URL, defaultName: Option[String] = None): Transformation = {
+    val source = Source.fromURL(url).mkString
+    parseSQL(source, defaultName)
   }
 
+  /**
+   * Parses the sql source to obtain a transformation object. Valid sql text to parse may look like this:
+   * {{{
+   * --<transformation name="create_table_script" enabled="true">
+   *   --<update>
+   *     -- script body here
+   *   --</update>
+   *   --<rollback>
+   *     -- rollback script body here
+   *   --</rollback>
+   * --</transformation>
+   * }}}
+   *
+   * @param sql sql text.
+   * @param defaultName default transformation name.
+   * @return transformation object.
+   */
   def parseSQL(sql: String, defaultName: Option[String] = None): Transformation = {
     val xml = scala.xml.XML.loadString(sql.replace("--<", "<"))
     parseXML(xml, defaultName)
   }
 
+  /**
+   * Parses the valid xml to obtain a transformation object.
+   *
+   * @param xml xml document.
+   * @param defaultName default transformation name.
+   * @return transformation object.
+   */
   def parseXML(xml: scala.xml.Elem, defaultName: Option[String] = None): Transformation = {
     if (xml.label != RootTag) {
       throw TransformationException(s"Transformation root element must be <$RootTag> tag")
     }
-    val name = (xml \ NameAttr).text match {
-      case s if s.trim.nonEmpty => s
+    val name = (xml \ NameAttr).text.trim match {
+      case s if s.nonEmpty => s
       case _ => defaultName.getOrElse(throw TransformationException(s"Transformation name must be specified with $NameAttr attribute"))
     }
     val enabled = (xml \ EnabledAttr).text.trim match {
       case "false" => false
       case _ => true
     }
-    val runInTransaction = (xml \ RunInTransactionAttr).text.trim match {
-      case "true" => true
-      case _ => false
-    }
     // Update script is mandatory
-    val sqlUpdate = (xml \\ UpdateTag).text match {
-      case s if s.trim.nonEmpty => s
+    val sqlUpdate = (xml \\ UpdateTag).text.trim match {
+      case s if s.nonEmpty => s
       case _ => throw TransformationException(s"Update script must be specified inside <$UpdateTag> tag")
     }
     // Rollback script is not mandatory
-    val sqlRollback = (xml \\ RollbackTag).text
+    val sqlRollback = (xml \\ RollbackTag).text.trim
 
-    val transformation = Transformation(name, sqlUpdate, sqlUpdate.hashCode.toString, sqlRollback, sqlRollback.hashCode.toString)
-    transformation.attributes = Some(TransformationAttributes(enabled, runInTransaction))
+    def md5(text: String) = MessageDigest.getInstance("MD5").digest(text.getBytes).map("%02x".format(_)).mkString
+
+    val transformation = Transformation(name, sqlUpdate, md5(sqlUpdate), sqlRollback, md5(sqlRollback))
+    transformation.rootAttributes.enabled = enabled
     transformation
   }
 

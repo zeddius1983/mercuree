@@ -25,7 +25,6 @@ import scala.util.{Failure, Success, Try}
 
 /**
  * Transformations dao manager.
- * <p>
  *
  * @author Alexander Valyugin
  */
@@ -37,7 +36,6 @@ class TransformationDao(val driver: JdbcProfile, val systemTableName: String = T
 
   /**
    * Database table schema definition. The table that keeps all database transformations applied.
-   * <p>
    *
    * @author Alexander Valyugin
    */
@@ -59,17 +57,15 @@ class TransformationDao(val driver: JdbcProfile, val systemTableName: String = T
 
   /**
    * Returns all available transformations from the system table.
-   * <p>
+   *
    * @param session implicit db session param.
    * @return a sequence of transformations.
    */
-  def all()(implicit session: Session): Seq[Transformation] = {
-    table.list
-  }
+  def all()(implicit session: Session): Seq[Transformation] = table.list
 
   /**
    * Checks that the system table exists and creates it if necessary.
-   * <p>
+   *
    * @param session implicit session.
    */
   def ensureSystemTable(implicit session: Session): Unit = {
@@ -82,12 +78,12 @@ class TransformationDao(val driver: JdbcProfile, val systemTableName: String = T
 
   /**
    * Applies the transformation to the given database.
-   * <p>
+   *
    * @param transformation the transformation to apply.
    * @param session implicit db session param.
    * @return the applied transformation.
    */
-  def apply(transformation: Transformation)(implicit session: Session): Unit = {
+  def apply(transformation: Transformation)(implicit session: Session) {
     val oldTransformationQuery = table.where(_.name === transformation.name)
     oldTransformationQuery.firstOption match {
       case Some(t) if t.sqlUpdateHash != transformation.sqlUpdateHash => {
@@ -117,12 +113,13 @@ class TransformationDao(val driver: JdbcProfile, val systemTableName: String = T
   }
 
   /**
-   * Rolls back the given transformation if only it has been previously applied.
-   * <p>
+   * Rolls back the given transformation if only it has been previously applied
+   * and the rollback script is available.
+   *
    * @param transformation to roll back.
    * @param session implicit session param.
    */
-  def rollback(transformation: Transformation)(implicit session: Session): Unit = {
+  def rollback(transformation: Transformation)(implicit session: Session) {
     val oldTransformationQuery = table.where(_.name === transformation.name)
     oldTransformationQuery.firstOption.map { t =>
         logger.info(s"Rolling back '${t.name}' transformation")

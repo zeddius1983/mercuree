@@ -22,8 +22,6 @@ import scala.slick.jdbc.JdbcBackend.Database
 import scala.util.{Success, Failure, Try}
 
 /**
- * TODO: javadoc
- * <p>
  *
  * @author Alexander Valyugin
  */
@@ -55,7 +53,7 @@ class Transformations(val transformations: Seq[Transformation]) {
         transformationDao.ensureSystemTable
 
         // First rollback disabled transformations
-        val (enabledList, disabledList) = transformations.partition(_.attributes.get.enabled)
+        val (enabledList, disabledList) = transformations.partition(_.rootAttributes.enabled)
         disabledList.foreach {
           t =>
             session.withTransaction {
@@ -66,14 +64,9 @@ class Transformations(val transformations: Seq[Transformation]) {
 
         enabledList.foreach {
           t =>
-            if (t.attributes.get.runInTransaction) {
-              session.withTransaction {
-                apply(t)
-              }
-            } else {
+            session.withTransaction {
               apply(t)
             }
-
         }
 
         // Rollback all deleted transformations
