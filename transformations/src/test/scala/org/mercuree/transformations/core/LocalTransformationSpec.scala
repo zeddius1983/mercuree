@@ -17,14 +17,14 @@
 package org.mercuree.transformations.core
 
 import org.scalatest.FlatSpec
-import scala.util.Try
+import scala.Some
 
 /**
- * Transformation test spec.
+ * [[Transformations.LocalTransformation]] test spec.
  *
  * @author Alexander Valyugin
  */
-class TransformationSpec extends FlatSpec {
+class LocalTransformationSpec extends FlatSpec with TestTransformations {
 
   private val invalidRootTagXml = <evolution></evolution>
   private val noNameSpecifiedXml = <transformation></transformation>
@@ -34,34 +34,34 @@ class TransformationSpec extends FlatSpec {
 
   "A transformation construction" should "fail if the root tag is invalid" in {
     intercept[TransformationException] {
-      Transformation.parseXML(invalidRootTagXml)
+      LocalTransformation.parseXML(invalidRootTagXml)
     }
   }
 
   it should "fail if the name is not specified" in {
     intercept[TransformationException] {
-      Transformation.parseXML(noNameSpecifiedXml)
+      LocalTransformation.parseXML(noNameSpecifiedXml)
     }
   }
 
   it should "fail if the update tag is missing" in {
     intercept[TransformationException] {
-      Transformation.parseXML(updateTagMissedXml)
+      LocalTransformation.parseXML(updateTagMissedXml)
     }
   }
 
   it should "fail if the update script is not specified" in {
     intercept[TransformationException] {
-      Transformation.parseXML(noUpdateScriptXml)
+      LocalTransformation.parseXML(noUpdateScriptXml)
     }
   }
 
   "A transformation" should "be loaded from the url correctly" in {
     val url = getClass.getResource("/transformations/create_table.sql")
-    val transformation = Transformation.fromURL(url, Some("test"))
+    val transformation = LocalTransformation.fromURL(url, Some("test"))
 
     assert("test" == transformation.name)
-    assert(transformation.rootAttributes.enabled)
+    assert(transformation.enabled)
     assert(transformation.sqlUpdate ==
       """
         |CREATE TABLE User (
@@ -79,13 +79,13 @@ class TransformationSpec extends FlatSpec {
   }
 
   "Enabled attribute" should "be parsed properly" in {
-    val transformation = Transformation.parseXML(transformationXml)
+    val transformation = LocalTransformation.parseXML(transformationXml)
 
-    assert(!transformation.rootAttributes.enabled)
+    assert(!transformation.enabled)
   }
 
   "Default transformation name" should "be overrided by a name attribute" in {
-    val transformation = Transformation.parseXML(transformationXml, Some("some_script"))
+    val transformation = LocalTransformation.parseXML(transformationXml, Some("some_script"))
 
     assert("test" == transformation.name)
   }

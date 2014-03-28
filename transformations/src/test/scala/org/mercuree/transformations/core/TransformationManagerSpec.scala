@@ -17,30 +17,21 @@
 package org.mercuree.transformations.core
 
 import org.scalatest.FlatSpec
-import scala.slick.driver.H2Driver
-import scala.slick.jdbc.JdbcBackend.{Database, Session}
-import scala.slick.jdbc.{StaticQuery => Sql}
-import scala.util.Try
+import scala.slick.driver.{JdbcProfile, H2Driver}
+import scala.slick.jdbc.JdbcBackend._
 
 /**
- * TransformationDao test spec.
- * <p>
  *
  * @author Alexander Valyugin
  */
-class TransformationDaoSpec extends FlatSpec {
+class TransformationManagerSpec extends FlatSpec with SlickTransformations with LoggedTransformations {
 
-//  val transformationDao = new TransformationDao(H2Driver)
-//
-//  val db = Database.forURL("jdbc:h2:mem:test;TRACE_LEVEL_FILE=4", driver = "org.h2.Driver")
-//
-//  "Transformation system table" should "be created if absent" in {
-//    db.withSession {
-//      implicit session: Session =>
-//        transformationDao.ensureSystemTable
-//        transformationDao.ensureSystemTable // Check table is not attempted to be created
-//        assert(0 == transformationDao.all.length)
-//    }
-//  }
+  val profile = H2Driver
+  val db =  Database.forURL("jdbc:h2:mem:test", driver = "org.h2.Driver")
+  override val localTransformations = List(LocalTransformation("test1", "select * from sometable", ""), LocalTransformation("test2", "", ""))
+
+  "Transformation system table" should "be created if absent" in {
+    accomplish
+  }
 
 }

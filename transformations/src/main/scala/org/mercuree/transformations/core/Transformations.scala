@@ -16,77 +16,179 @@
 
 package org.mercuree.transformations.core
 
-import scala.slick.driver.JdbcProfile
+import scala.io.Source
+import java.net.URL
+import java.security.MessageDigest
 import org.slf4j.LoggerFactory
-import scala.slick.jdbc.JdbcBackend.Database
-import scala.util.{Success, Failure, Try}
 
 /**
+ * TODO: scaladoc
  *
  * @author Alexander Valyugin
  */
-class Transformations(val transformations: Seq[Transformation]) {
+trait Transformations {
 
-  val logger = LoggerFactory.getLogger(getClass)
+  final val logger = LoggerFactory.getLogger(getClass)
 
   /**
-   * Executes transformations.
+   * Returns the list of already applied database transformations.
+   *
+   * @return a list of [[StoredTransformation]].
    */
-  def execute(db: Database, driver: JdbcProfile): Unit = {
-    val transformationDao = new TransformationDao(driver)
-    import transformationDao.driver.simple._
+  def storedTransformations: List[StoredTransformation]
 
-    def rollback(transformation: Transformation)(implicit session: Session): Unit = {
-      Try(transformationDao.rollback(transformation)).recover {
-        case e => logger.error(s"Transformation '${transformation.name}' rollback failed due to ", e)
-      }
+  /**
+   * Returns the list of user requested transformations to be applied.
+   *
+   * @return a list of [[LocalTransformation]].
+   */
+  def localTransformations: List[LocalTransformation]
+
+  /**
+   * Represents a database change.
+   */
+  trait Transformation {
+    val name: String
+    val sqlUpdate: String
+    val sqlUpdateHash: String
+    val sqlRollback: String
+    val sqlRollbackHash: String
+  }
+
+  /**
+   * A transformation that has been already applied to a database.
+   */
+  case class StoredTransformation(name: String, sqlUpdate: String, sqlUpdateHash: String,
+                              sqlRollback: String, sqlRollbackHash: String) extends Transformation {
+    def rollback = Transformations.this.rollback(this)
+  }
+
+  object StoredTransformation {
+    def fromTuple: ((String, String, String, String, String)) => StoredTransformation = {
+      case Tuple5(x1, x2, x3, x4, x5) => apply(x1, x2, x3, x4, x5)
+    }
+  }
+
+  /**
+   * A user requested transformation to apply.
+   */
+  case class LocalTransformation(name: String, sqlUpdate: String, sqlRollback: String,
+                               enabled: Boolean = true) extends Transformation {
+    val disabled = !enabled
+    val sqlUpdateHash = md5(sqlUpdate)
+    val sqlRollbackHash = md5(sqlRollback)
+
+    def apply = Transformations.this.apply(this)
+
+    private def md5(text: String) = MessageDigest.getInstance("MD5").digest(text.getBytes).map("%02x".format(_)).mkString
+  }
+
+  object LocalTransformation {
+
+    private val NameAttr = "@name"
+    private val EnabledAttr = "@enabled"
+    private val RootTag = "transformation"
+    private val UpdateTag = "update"
+    private val RollbackTag = "rollback"
+
+    /**
+     * Loads the transformation from the given url.
+     *
+     * @param url file path.
+     * @param defaultName default transformation name.
+     * @return transformation object.
+     */
+    def fromURL(url: URL, defaultName: Option[String] = None): LocalTransformation = {
+      val source = Source.fromURL(url).mkString
+      parseSQL(source, defaultName)
     }
 
-    def apply(transformation: Transformation)(implicit session: Session): Unit = {
-      Try(transformationDao.apply(transformation)).recover {
-        case e => logger.error(s"Transformation '${transformation.name}' is not applied due to ", e)
-      }
+    implicit def localToStored(local: LocalTransformation) = StoredTransformation(
+      local.name, local.sqlUpdate, local.sqlUpdateHash, local.sqlRollback, local.sqlRollbackHash)
+
+    /**
+     * Parses the sql source to obtain a transformation object. Valid sql text to parse may look like this:
+     * {{{
+     * --<transformation name="create_table_script" enabled="true">
+     *   --<update>
+     *     -- script body here
+     *   --</update>
+     *   --<rollback>
+     *     -- rollback script body here
+     *   --</rollback>
+     * --</transformation>
+     * }}}
+     *
+     * @param sql sql text.
+     * @param defaultName default transformation name.
+     * @return transformation object.
+     */
+    def parseSQL(sql: String, defaultName: Option[String] = None): LocalTransformation = {
+      val xml = scala.xml.XML.loadString(sql.replace("--<", "<"))
+      parseXML(xml, defaultName)
     }
 
-    db.withSession {
-      implicit session =>
-        transformationDao.ensureSystemTable
+    /**
+     * Parses the valid xml to obtain a transformation object.
+     *
+     * @param xml xml document.
+     * @param defaultName default transformation name.
+     * @return transformation object.
+     */
+    def parseXML(xml: scala.xml.Elem, defaultName: Option[String] = None): LocalTransformation = {
+      if (xml.label != RootTag) {
+        throw TransformationException(s"Transformation root element must be <$RootTag> tag")
+      }
+      val name = (xml \ NameAttr).text.trim match {
+        case s if s.nonEmpty => s
+        case _ => defaultName.getOrElse(throw TransformationException(s"Transformation name must be specified with $NameAttr attribute"))
+      }
+      val enabled = (xml \ EnabledAttr).text.trim match {
+        case "false" => false
+        case _ => true
+      }
+      // Update script is mandatory
+      val sqlUpdate = (xml \\ UpdateTag).text.trim match {
+        case s if s.nonEmpty => s
+        case _ => throw TransformationException(s"Update script must be specified inside <$UpdateTag> tag")
+      }
+      // Rollback script is not mandatory
+      val sqlRollback = (xml \\ RollbackTag).text.trim
 
-        // First rollback disabled transformations
-        val (enabledList, disabledList) = transformations.partition(_.rootAttributes.enabled)
-        disabledList.foreach {
-          t =>
-            session.withTransaction {
-              logger.info(s"Transformation '${t.name}' is disabled")
-              rollback(t)
-            }
-        }
+      LocalTransformation(name, sqlUpdate, sqlRollback, enabled)
+    }
+  }
 
-        enabledList.foreach {
-          t =>
-            session.withTransaction {
-              apply(t)
-            }
-        }
+  case class TransformationException(message: String) extends RuntimeException(message)
 
-        // Rollback all deleted transformations
-        val databaseTransformations = transformationDao.all.map(_.name).toSet
-        val localTransformations = enabledList.map(_.name).toSet
-        val removedTransformationNames = databaseTransformations -- localTransformations
-        val transformationsToRollback = transformationDao.all.filter(t => removedTransformationNames.contains(t.name))
-        transformationsToRollback.foreach {
-          t =>
-            session.withTransaction {
-              logger.info(s"Transformation '${t.name}' has been removed")
-              rollback(t)
-            }
+  def apply(transformation: LocalTransformation)
+
+  def rollback(transformation: StoredTransformation)
+
+  def update(transformation: LocalTransformation)
+
+  def accomplish {
+    val storedMap = storedTransformations.map(t => (t.name, t)).toMap
+    val localMap = localTransformations.map(t => (t.name, t)).toMap
+    val all = (storedMap.keySet ++ localMap.keySet).map(name => (localMap.get(name), storedMap.get(name)))
+    all.foreach {
+      case (Some(local), Some(stored)) => {
+        if (local.disabled) {
+          stored.rollback
+        } else if (local.sqlUpdateHash != stored.sqlUpdateHash) {
+
+        } else if (local.sqlRollbackHash != stored.sqlRollbackHash) {
+
         }
+      }
+      case (Some(local), None) => local.apply
+      case (None, Some(stored)) => stored.rollback
+      case (None, None) => 
     }
   }
 
 }
 
 
-object Transformations {
 
-}
+

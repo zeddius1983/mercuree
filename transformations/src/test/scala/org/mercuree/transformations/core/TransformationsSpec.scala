@@ -24,88 +24,87 @@ import java.sql.SQLException
 
 /**
  * Transformations test spec.
- * <p>
  *
  * @author Alexander Valyugin
  */
-class TransformationsSpec extends FlatSpec {
-
-  val TestTableSql =
-    """create table persons (
-      |id int not null auto_increment,
-      |fullname varchar(255),
-      |primary key (id)
-      |);
-    """.stripMargin
-
-  val InsertPersonSql = "insert into persons values (1, 'John Smith');"
-
-  val DeletePersonSql = "delete from persons where id = 1;"
-
-  val FailingSql = "insert into persons values (2, 3, 4);"
-
-  val CountPersonsSql = "select count(*) from persons;"
-
-  val db = Database.forURL("jdbc:h2:mem:test", driver = "org.h2.Driver")
-
-  "Disabled transformations" should "not be applied" in {
-    val t = Transformation("test", InsertPersonSql, "", "", "")
-    t.rootAttributes.enabled = false
-    val transformations = new Transformations(List(t))
-
-    db.withSession {
-      implicit session: Session =>
-        Sql.updateNA(TestTableSql).execute
-        transformations.execute(db, H2Driver)
-        val count = Sql.queryNA[Int](CountPersonsSql).first
-        assert(count == 0)
-    }
-  }
-
-  "Disabled transformations" should "be rolled back if had been applied previously" in {
-    val t1 = Transformation("test", InsertPersonSql, "", DeletePersonSql, "")
-    t1.rootAttributes.enabled = true
-    val t2 = Transformation("test", InsertPersonSql, "", DeletePersonSql, "")
-    t2.rootAttributes.enabled = false
-    val transformationsFirst = new Transformations(List(t1))
-    val transformationsSecond = new Transformations(List(t2))
-
-    db.withSession {
-      implicit session: Session =>
-        Sql.updateNA(TestTableSql).execute
-        transformationsFirst.execute(db, H2Driver)
-        transformationsSecond.execute(db, H2Driver)
-        val count = Sql.queryNA[Int](CountPersonsSql).first
-        assert(count == 0)
-    }
-  }
-
-  "Transformations running in transaction" should "be applied properly" in {
-    val t = Transformation("test", InsertPersonSql + FailingSql, "", "", "")
-    val transformations = new Transformations(List(t))
-
-    db.withSession {
-      implicit session: Session =>
-        Sql.updateNA(TestTableSql).execute
-        transformations.execute(db, H2Driver)
-        val count = Sql.queryNA[Int](CountPersonsSql).first
-        assert(count == 0)
-    }
-  }
-
-  "Removed transformations" should "be rolled back if had been applied previously" in {
-    val t = Transformation("test", InsertPersonSql, "", DeletePersonSql, "")
-    val transformationsFirst = new Transformations(List(t))
-    val transformationsSecond = new Transformations(List())
-
-    db.withSession {
-      implicit session: Session =>
-        Sql.updateNA(TestTableSql).execute
-        transformationsFirst.execute(db, H2Driver)
-        transformationsSecond.execute(db, H2Driver)
-        val count = Sql.queryNA[Int](CountPersonsSql).first
-        assert(count == 0)
-    }
-  }
-
-}
+//class TransformationsSpec extends FlatSpec {
+//
+//  val TestTableSql =
+//    """create table persons (
+//      |id int not null auto_increment,
+//      |fullname varchar(255),
+//      |primary key (id)
+//      |);
+//    """.stripMargin
+//
+//  val InsertPersonSql = "insert into persons values (1, 'John Smith');"
+//
+//  val DeletePersonSql = "delete from persons where id = 1;"
+//
+//  val FailingSql = "insert into persons values (2, 3, 4);"
+//
+//  val CountPersonsSql = "select count(*) from persons;"
+//
+//  val db = Database.forURL("jdbc:h2:mem:test", driver = "org.h2.Driver")
+//
+//  "Disabled transformations" should "not be applied" in {
+//    val t = Transformation("test", InsertPersonSql, "", "", "")
+//    t.rootAttributes.enabled = false
+//    val transformations = new Transformations(List(t))
+//
+//    db.withSession {
+//      implicit session: Session =>
+//        Sql.updateNA(TestTableSql).execute
+//        transformations.execute(db, H2Driver)
+//        val count = Sql.queryNA[Int](CountPersonsSql).first
+//        assert(count == 0)
+//    }
+//  }
+//
+//  "Disabled transformations" should "be rolled back if had been applied previously" in {
+//    val t1 = Transformation("test", InsertPersonSql, "", DeletePersonSql, "")
+//    t1.rootAttributes.enabled = true
+//    val t2 = Transformation("test", InsertPersonSql, "", DeletePersonSql, "")
+//    t2.rootAttributes.enabled = false
+//    val transformationsFirst = new Transformations(List(t1))
+//    val transformationsSecond = new Transformations(List(t2))
+//
+//    db.withSession {
+//      implicit session: Session =>
+//        Sql.updateNA(TestTableSql).execute
+//        transformationsFirst.execute(db, H2Driver)
+//        transformationsSecond.execute(db, H2Driver)
+//        val count = Sql.queryNA[Int](CountPersonsSql).first
+//        assert(count == 0)
+//    }
+//  }
+//
+//  "Transformations running in transaction" should "be applied properly" in {
+//    val t = Transformation("test", InsertPersonSql + FailingSql, "", "", "")
+//    val transformations = new Transformations(List(t))
+//
+//    db.withSession {
+//      implicit session: Session =>
+//        Sql.updateNA(TestTableSql).execute
+//        transformations.execute(db, H2Driver)
+//        val count = Sql.queryNA[Int](CountPersonsSql).first
+//        assert(count == 0)
+//    }
+//  }
+//
+//  "Removed transformations" should "be rolled back if had been applied previously" in {
+//    val t = Transformation("test", InsertPersonSql, "", DeletePersonSql, "")
+//    val transformationsFirst = new Transformations(List(t))
+//    val transformationsSecond = new Transformations(List())
+//
+//    db.withSession {
+//      implicit session: Session =>
+//        Sql.updateNA(TestTableSql).execute
+//        transformationsFirst.execute(db, H2Driver)
+//        transformationsSecond.execute(db, H2Driver)
+//        val count = Sql.queryNA[Int](CountPersonsSql).first
+//        assert(count == 0)
+//    }
+//  }
+//
+//}
