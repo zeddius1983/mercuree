@@ -20,6 +20,120 @@ import scala.io.Source
 import java.net.URL
 import java.security.MessageDigest
 import org.slf4j.LoggerFactory
+import scala.language.implicitConversions
+
+/**
+ * Represents a database change.
+ */
+trait Transformation {
+  val name: String
+  val sqlUpdate: String
+  val sqlUpdateHash: String
+  val sqlRollback: String
+  val sqlRollbackHash: String
+}
+
+/**
+ * A transformation that has been already applied to a database.
+ */
+case class StoredTransformation(name: String, sqlUpdate: String, sqlUpdateHash: String,
+                                sqlRollback: String, sqlRollbackHash: String) extends Transformation
+
+object StoredTransformation {
+  def fromTuple: ((String, String, String, String, String)) => StoredTransformation = {
+    case Tuple5(x1, x2, x3, x4, x5) => apply(x1, x2, x3, x4, x5)
+  }
+}
+
+/**
+ * A user requested transformation to apply.
+ */
+case class LocalTransformation(name: String, sqlUpdate: String, sqlRollback: String,
+                               enabled: Boolean = true) extends Transformation {
+  val disabled = !enabled
+  val sqlUpdateHash = md5(sqlUpdate)
+  val sqlRollbackHash = md5(sqlRollback)
+
+  private def md5(text: String) = MessageDigest.getInstance("MD5").digest(text.getBytes).map("%02x".format(_)).mkString
+}
+
+object LocalTransformation {
+
+  private val NameAttr = "@name"
+  private val EnabledAttr = "@enabled"
+  private val RootTag = "transformation"
+  private val UpdateTag = "update"
+  private val RollbackTag = "rollback"
+
+  /**
+   * Loads the transformation from the given url.
+   *
+   * @param url file path.
+   * @param defaultName default transformation name.
+   * @return transformation object.
+   */
+  def fromURL(url: URL, defaultName: Option[String] = None): LocalTransformation = {
+    val source = Source.fromURL(url).mkString
+    parseSQL(source, defaultName)
+  }
+
+  implicit def localToStored(local: LocalTransformation) = StoredTransformation(
+    local.name, local.sqlUpdate, local.sqlUpdateHash, local.sqlRollback, local.sqlRollbackHash)
+
+  /**
+   * Parses the sql source to obtain a transformation object. Valid sql text to parse may look like this:
+   * {{{
+   * --<transformation name="create_table_script" enabled="true">
+   *   --<update>
+   *     -- script body here
+   *   --</update>
+   *   --<rollback>
+   *     -- rollback script body here
+   *   --</rollback>
+   * --</transformation>
+   * }}}
+   *
+   * @param sql sql text.
+   * @param defaultName default transformation name.
+   * @return transformation object.
+   */
+  def parseSQL(sql: String, defaultName: Option[String] = None): LocalTransformation = {
+    val xml = scala.xml.XML.loadString(sql.replace("--<", "<"))
+    parseXML(xml, defaultName)
+  }
+
+  /**
+   * Parses the valid xml to obtain a transformation object.
+   *
+   * @param xml xml document.
+   * @param defaultName default transformation name.
+   * @return transformation object.
+   */
+  def parseXML(xml: scala.xml.Elem, defaultName: Option[String] = None): LocalTransformation = {
+    if (xml.label != RootTag) {
+      throw TransformationException(s"Transformation root element must be <$RootTag> tag")
+    }
+    val name = (xml \ NameAttr).text.trim match {
+      case s if s.nonEmpty => s
+      case _ => defaultName.getOrElse(throw TransformationException(s"Transformation name must be specified with $NameAttr attribute"))
+    }
+    val enabled = (xml \ EnabledAttr).text.trim match {
+      case "false" => false
+      case _ => true
+    }
+    // Update script is mandatory
+    val sqlUpdate = (xml \\ UpdateTag).text.trim match {
+      case s if s.nonEmpty => s
+      case _ => throw TransformationException(s"Update script must be specified inside <$UpdateTag> tag")
+    }
+    // Rollback script is not mandatory
+    val sqlRollback = (xml \\ RollbackTag).text.trim
+
+    LocalTransformation(name, sqlUpdate, sqlRollback, enabled)
+  }
+}
+
+case class TransformationException(message: String) extends RuntimeException(message)
 
 /**
  * TODO: scaladoc
@@ -45,150 +159,62 @@ trait Transformations {
   def localTransformations: List[LocalTransformation]
 
   /**
-   * Represents a database change.
+   * Applies the given transformation to the database.
+   * Once applied transformation should be found in stored transformations.
+   *
+   * @param transformation local transformation to apply.
    */
-  trait Transformation {
-    val name: String
-    val sqlUpdate: String
-    val sqlUpdateHash: String
-    val sqlRollback: String
-    val sqlRollbackHash: String
-  }
-
-  /**
-   * A transformation that has been already applied to a database.
-   */
-  case class StoredTransformation(name: String, sqlUpdate: String, sqlUpdateHash: String,
-                              sqlRollback: String, sqlRollbackHash: String) extends Transformation {
-    def rollback = Transformations.this.rollback(this)
-  }
-
-  object StoredTransformation {
-    def fromTuple: ((String, String, String, String, String)) => StoredTransformation = {
-      case Tuple5(x1, x2, x3, x4, x5) => apply(x1, x2, x3, x4, x5)
-    }
-  }
-
-  /**
-   * A user requested transformation to apply.
-   */
-  case class LocalTransformation(name: String, sqlUpdate: String, sqlRollback: String,
-                               enabled: Boolean = true) extends Transformation {
-    val disabled = !enabled
-    val sqlUpdateHash = md5(sqlUpdate)
-    val sqlRollbackHash = md5(sqlRollback)
-
-    def apply = Transformations.this.apply(this)
-
-    private def md5(text: String) = MessageDigest.getInstance("MD5").digest(text.getBytes).map("%02x".format(_)).mkString
-  }
-
-  object LocalTransformation {
-
-    private val NameAttr = "@name"
-    private val EnabledAttr = "@enabled"
-    private val RootTag = "transformation"
-    private val UpdateTag = "update"
-    private val RollbackTag = "rollback"
-
-    /**
-     * Loads the transformation from the given url.
-     *
-     * @param url file path.
-     * @param defaultName default transformation name.
-     * @return transformation object.
-     */
-    def fromURL(url: URL, defaultName: Option[String] = None): LocalTransformation = {
-      val source = Source.fromURL(url).mkString
-      parseSQL(source, defaultName)
-    }
-
-    implicit def localToStored(local: LocalTransformation) = StoredTransformation(
-      local.name, local.sqlUpdate, local.sqlUpdateHash, local.sqlRollback, local.sqlRollbackHash)
-
-    /**
-     * Parses the sql source to obtain a transformation object. Valid sql text to parse may look like this:
-     * {{{
-     * --<transformation name="create_table_script" enabled="true">
-     *   --<update>
-     *     -- script body here
-     *   --</update>
-     *   --<rollback>
-     *     -- rollback script body here
-     *   --</rollback>
-     * --</transformation>
-     * }}}
-     *
-     * @param sql sql text.
-     * @param defaultName default transformation name.
-     * @return transformation object.
-     */
-    def parseSQL(sql: String, defaultName: Option[String] = None): LocalTransformation = {
-      val xml = scala.xml.XML.loadString(sql.replace("--<", "<"))
-      parseXML(xml, defaultName)
-    }
-
-    /**
-     * Parses the valid xml to obtain a transformation object.
-     *
-     * @param xml xml document.
-     * @param defaultName default transformation name.
-     * @return transformation object.
-     */
-    def parseXML(xml: scala.xml.Elem, defaultName: Option[String] = None): LocalTransformation = {
-      if (xml.label != RootTag) {
-        throw TransformationException(s"Transformation root element must be <$RootTag> tag")
-      }
-      val name = (xml \ NameAttr).text.trim match {
-        case s if s.nonEmpty => s
-        case _ => defaultName.getOrElse(throw TransformationException(s"Transformation name must be specified with $NameAttr attribute"))
-      }
-      val enabled = (xml \ EnabledAttr).text.trim match {
-        case "false" => false
-        case _ => true
-      }
-      // Update script is mandatory
-      val sqlUpdate = (xml \\ UpdateTag).text.trim match {
-        case s if s.nonEmpty => s
-        case _ => throw TransformationException(s"Update script must be specified inside <$UpdateTag> tag")
-      }
-      // Rollback script is not mandatory
-      val sqlRollback = (xml \\ RollbackTag).text.trim
-
-      LocalTransformation(name, sqlUpdate, sqlRollback, enabled)
-    }
-  }
-
-  case class TransformationException(message: String) extends RuntimeException(message)
-
   def apply(transformation: LocalTransformation)
 
+  /**
+   * Rollbacks already applied transformation from the database.
+   * After rollback the transformation won't be found in stored transformations.
+   *
+   * @param transformation stored transformation to rollback.
+   */
   def rollback(transformation: StoredTransformation)
 
+  /**
+   * Updates the transformation details without applying it to the database.
+   * Having this done the stored transformations is updated with the data from
+   * the provided local transformation.
+   *
+   * @param transformation to update with.
+   */
   def update(transformation: LocalTransformation)
+
+  def process(tuple: (Option[LocalTransformation], Option[StoredTransformation])) {
+    val name = tuple._1.orElse(tuple._2).get.name
+    logger.info(s"Processing transformation '$name'")
+    try {
+      tuple match {
+        case (Some(local), Some(stored)) => {
+          if (local.disabled) {
+            logger.info(s"-Transformation '${name}' is disabled and hence will be rolled back")
+            rollback(stored)
+          }
+          else if (local.sqlUpdateHash != stored.sqlUpdateHash) {
+            rollback(stored)
+            apply(local)
+          } else if (local.sqlRollbackHash != stored.sqlRollbackHash) update(local)
+        }
+        case (Some(local), None) => {
+          if (local.enabled) apply(local)
+        }
+        case (None, Some(stored)) => rollback(stored)
+        case (None, None) =>
+      }
+    } catch {
+      case e: Exception => logger.error(s"Transformation '$name' processing has failed due to:\n $e")
+    }
+    logger.info(s"Processing transformation '$name' completed successfully")
+  }
 
   def accomplish {
     val storedMap = storedTransformations.map(t => (t.name, t)).toMap
     val localMap = localTransformations.map(t => (t.name, t)).toMap
     val all = (storedMap.keySet ++ localMap.keySet).map(name => (localMap.get(name), storedMap.get(name)))
-    all.foreach {
-      case (Some(local), Some(stored)) => {
-        if (local.disabled) {
-          stored.rollback
-        } else if (local.sqlUpdateHash != stored.sqlUpdateHash) {
-
-        } else if (local.sqlRollbackHash != stored.sqlRollbackHash) {
-
-        }
-      }
-      case (Some(local), None) => local.apply
-      case (None, Some(stored)) => stored.rollback
-      case (None, None) => 
-    }
+    all.foreach(process)
   }
 
 }
-
-
-
-

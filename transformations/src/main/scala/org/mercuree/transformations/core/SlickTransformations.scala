@@ -20,8 +20,10 @@ import scala.slick.driver.JdbcProfile
 import scala.slick.jdbc.JdbcBackend._
 import scala.slick.jdbc.{StaticQuery => Sql}
 import Database.dynamicSession
+import scala.language.implicitConversions
 
 /**
+ * Slick based implementation.
  *
  * @author Alexander Valyugin
  */
@@ -59,31 +61,30 @@ trait SlickTransformations extends Transformations {
   private def createSystemTable {
     import scala.slick.jdbc.meta.MTable
     if (!MTable.getTables.list.exists(_.name.name == transformationsTableName)) {
-      logger.info(s"Transformation table [$transformationsTableName] is missing!")
+      logger.debug(s"Transformation table [$transformationsTableName] is missing!")
       transformationsTable.ddl.create
-      logger.info(s"Created transformation table [$transformationsTableName]")
+      logger.debug(s"Created transformation table [$transformationsTableName]")
     }
   }
 
-  private def findByName(name: String) = transformationsTable.where(_.name === name)
-
-  def apply(transformation: LocalTransformation) = db.withDynTransaction {
+  def apply(transformation: LocalTransformation) {
     Sql.updateNA(transformation.sqlUpdate).execute
-    val storedTransformation = findByName(transformation.name)
-    if (storedTransformation.firstOption.isDefined) storedTransformation.update(transformation)
-    else transformationsTable += transformation
+    transformationsTable += transformation
   }
 
   def rollback(transformation: StoredTransformation) {
-    val storedTransformation = findByName(transformation.name)
+    val storedTransformation = transformationsTable.where(_.name === transformation.name)
     Sql.updateNA(storedTransformation.first.sqlRollback).execute
     storedTransformation.delete
   }
 
   def update(transformation: LocalTransformation) {
-    val storedTransformation = findByName(transformation.name)
+    val storedTransformation = transformationsTable.where(_.name === transformation.name)
     storedTransformation.update(transformation)
   }
+
+  override def process(tuple: (Option[LocalTransformation], Option[StoredTransformation]))
+    = db.withDynTransaction(super.process(tuple))
 
   override def accomplish = db.withDynSession {
     createSystemTable

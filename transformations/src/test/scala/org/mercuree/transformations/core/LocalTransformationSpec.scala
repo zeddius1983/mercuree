@@ -20,11 +20,11 @@ import org.scalatest.FlatSpec
 import scala.Some
 
 /**
- * [[Transformations.LocalTransformation]] test spec.
+ * [[LocalTransformation]] test spec.
  *
  * @author Alexander Valyugin
  */
-class LocalTransformationSpec extends FlatSpec with TestTransformations {
+class LocalTransformationSpec extends FlatSpec {
 
   private val invalidRootTagXml = <evolution></evolution>
   private val noNameSpecifiedXml = <transformation></transformation>
