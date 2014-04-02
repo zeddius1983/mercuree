@@ -190,24 +190,33 @@ trait Transformations {
       tuple match {
         case (Some(local), Some(stored)) => {
           if (local.disabled) {
-            logger.info(s"-Transformation '${name}' is disabled and hence will be rolled back")
+            logger.info(s"-Transformation '${name}' is disabled")
             rollback(stored)
-          }
-          else if (local.sqlUpdateHash != stored.sqlUpdateHash) {
+          } else if (local.sqlUpdateHash != stored.sqlUpdateHash) {
+            logger.info(s"-Transformation '${name}' update script is modified")
             rollback(stored)
             apply(local)
-          } else if (local.sqlRollbackHash != stored.sqlRollbackHash) update(local)
+          } else if (local.sqlRollbackHash != stored.sqlRollbackHash) {
+            logger.info(s"-Transformation '${name}' rollback script is modified")
+            update(local)
+          }
         }
         case (Some(local), None) => {
-          if (local.enabled) apply(local)
+          if (local.enabled) {
+            logger.info(s"-Transformation '${name}' can be applied")
+            apply(local)
+          }
         }
-        case (None, Some(stored)) => rollback(stored)
-        case (None, None) =>
+        case (None, Some(stored)) => {
+          logger.info(s"-Transformation '${name}' is removed by a user")
+          rollback(stored)
+        }
+        case (None, None) => logger.error("Never reached")
       }
+      logger.info(s"Transformation '$name' completed successfully")
     } catch {
       case e: Exception => logger.error(s"Transformation '$name' processing has failed due to:\n $e")
     }
-    logger.info(s"Processing transformation '$name' completed successfully")
   }
 
   def accomplish {

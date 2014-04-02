@@ -56,7 +56,7 @@ trait SlickTransformations extends Transformations {
 
   private lazy val transformationsTable = TableQuery[TransformationTable]((tag: Tag) => new TransformationTable(tag, transformationsTableName))
 
-  def storedTransformations: List[StoredTransformation] = transformationsTable.list
+  def storedTransformations: List[StoredTransformation] = db.withDynSession(transformationsTable.list)
 
   private def createSystemTable {
     import scala.slick.jdbc.meta.MTable

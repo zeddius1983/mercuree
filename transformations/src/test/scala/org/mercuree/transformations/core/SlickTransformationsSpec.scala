@@ -107,6 +107,7 @@ class SlickTransformationsSpec extends FlatSpec {
         pack2.accomplish
         val count = Sql.queryNA[Int](CountPersonsSql).first
         assert(count == 0)
+        assert(pack2.storedTransformations.isEmpty)
     }
   }
 

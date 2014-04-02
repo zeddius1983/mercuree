@@ -22,4 +22,5 @@ jar {
 dependencies {
     compile("com.typesafe.slick:slick_2.10:2.0.0")
     testCompile("org.scalatest:scalatest_2.10:2.0")
+    testCompile("org.scalamock:scalamock-scalatest-support_2.10:3.1.RC1")
 }
