@@ -26,68 +26,80 @@ import scala.Some
  */
 class LocalTransformationSpec extends FlatSpec {
 
-  private val invalidRootTagXml = <evolution></evolution>
-  private val noNameSpecifiedXml = <transformation></transformation>
-  private val updateTagMissedXml = <transformation name="test"></transformation>
-  private val noUpdateScriptXml = <transformation name="test"><update></update></transformation>
-  private val transformationXml = <transformation name="test" enabled="false"><update>script</update></transformation>
+  private val InvalidRootTagXml = <evolution></evolution>
+  private val NoNameSpecifiedXml = <transformation></transformation>
+  private val UpdateTagMissedXml = <transformation></transformation>
+  private val NoUpdateScriptXml = <transformation><update></update></transformation>
+  private val TransformationXml = <transformation enabled="false"><update>script</update></transformation>
+  private val SkippedXml = <transformation><update>script</update></transformation>
 
   "A transformation construction" should "fail if the root tag is invalid" in {
     intercept[TransformationException] {
-      LocalTransformation.parseXML(invalidRootTagXml)
+      LocalTransformation.parseXML(InvalidRootTagXml, "id")
     }
   }
 
   it should "fail if the name is not specified" in {
     intercept[TransformationException] {
-      LocalTransformation.parseXML(noNameSpecifiedXml)
+      LocalTransformation.parseXML(NoNameSpecifiedXml, "id")
     }
   }
 
   it should "fail if the update tag is missing" in {
     intercept[TransformationException] {
-      LocalTransformation.parseXML(updateTagMissedXml)
+      LocalTransformation.parseXML(UpdateTagMissedXml, "id")
     }
   }
 
   it should "fail if the update script is not specified" in {
     intercept[TransformationException] {
-      LocalTransformation.parseXML(noUpdateScriptXml)
+      LocalTransformation.parseXML(NoUpdateScriptXml, "id")
     }
   }
 
   "A transformation" should "be loaded from the url correctly" in {
     val url = getClass.getResource("/transformations/create_table.sql")
-    val transformation = LocalTransformation.fromURL(url, Some("test"))
+    val transformation = LocalTransformation.fromURL(url, "id")
 
-    assert("test" == transformation.name)
-    assert(transformation.enabled)
-    assert(transformation.sqlUpdate ==
-      """
-        |CREATE TABLE User (
-        |    id bigint(20) NOT NULL AUTO_INCREMENT,
-        |    email varchar(255) NOT NULL,
-        |    password varchar(255) NOT NULL,
-        |    fullname varchar(255) NOT NULL,
-        |    isAdmin boolean NOT NULL,
-        |    PRIMARY KEY (id)
-        |);
-      """.stripMargin.trim)
-    assert("0E5BEB7344F44C053094BEAD4411B621" == transformation.sqlUpdateHash.toUpperCase)
-    assert("DROP TABLE User;" == transformation.sqlRollback)
-    assert("BCB8140B058A8CA2F5DCA6BF6B26B4B9" == transformation.sqlRollbackHash.toUpperCase)
+    transformation match {
+      case t: LocalTransformation =>
+        assert("id" == t.id)
+        assert(t.updateScript ==
+          """
+            |CREATE TABLE User (
+            |    id bigint(20) NOT NULL AUTO_INCREMENT,
+            |    email varchar(255) NOT NULL,
+            |    password varchar(255) NOT NULL,
+            |    fullname varchar(255) NOT NULL,
+            |    isAdmin boolean NOT NULL,
+            |    PRIMARY KEY (id)
+            |);
+          """.stripMargin.trim)
+        assert("0E5BEB7344F44C053094BEAD4411B621" == t.updateScriptHash.toUpperCase)
+        assert("DROP TABLE User;" == t.rollbackScript)
+        assert("BCB8140B058A8CA2F5DCA6BF6B26B4B9" == t.rollbackScriptHash.toUpperCase)
+      case _ => assert(false, "Should be instanceof LocalTransformation")
+    }
+
   }
 
-  "Enabled attribute" should "be parsed properly" in {
-    val transformation = LocalTransformation.parseXML(transformationXml)
+  "Disabled transformation" should "be loaded properly" in {
+    val transformation = LocalTransformation.parseXML(TransformationXml, "id")
 
-    assert(!transformation.enabled)
+    transformation match {
+      case DisabledTransformation(_) => assert(true)
+      case _ => assert(false, "Should be instanceof LocalTransformation")
+    }
+
   }
 
-  "Default transformation name" should "be overrided by a name attribute" in {
-    val transformation = LocalTransformation.parseXML(transformationXml, Some("some_script"))
+  "Transformation id started with '-'" should "be skipped" in {
+    val transformation = LocalTransformation.parseXML(SkippedXml, "-test")
 
-    assert("test" == transformation.name)
+    transformation match {
+      case SkippedTransformation("test") => assert(true)
+      case _ => assert(false, "Transformation should be skipped")
+    }
   }
 
 }

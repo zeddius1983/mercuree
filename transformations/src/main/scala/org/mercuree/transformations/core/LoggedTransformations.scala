@@ -21,34 +21,34 @@ package org.mercuree.transformations.core
  *
  * @author Alexander Valyugin
  */
-trait LoggedTransformations extends Transformations {
+trait LoggedTransformations {
 
   import System.{currentTimeMillis => currentTime}
 
   def profile[R](f: => R, t: Long = currentTime) = { f; currentTime - t }
 
-  abstract override def apply(transformation: LocalTransformation) {
-    logger.info(s"--Apply transformation '${transformation.name}'")
-    val elapsed = profile {
-      super.apply(transformation)
-    }
-    logger.info(s"--Transformation '${transformation.name}' successfully applied in $elapsed ms")
-  }
-
-  abstract override def rollback(transformation: StoredTransformation) {
-    logger.info(s"--Rollback transformation '${transformation.name}'")
-    val elapsed = profile {
-      super.rollback(transformation)
-    }
-    logger.info(s"--Transformation '${transformation.name}' successfully rollbacked in $elapsed ms")
-  }
-
-  abstract override def update(transformation: LocalTransformation) {
-    logger.info(s"--Update transformation '${transformation.name}'")
-    val elapsed = profile {
-      super.update(transformation)
-    }
-    logger.info(s"--Transformation '${transformation.name}' successfully updated in $elapsed ms")
-  }
+//  abstract override def apply(transformation: LocalTransformation) {
+//    logger.info(s"--Apply transformation '${transformation.name}'")
+//    val elapsed = profile {
+//      super.apply(transformation)
+//    }
+//    logger.info(s"--Transformation '${transformation.name}' successfully applied in $elapsed ms")
+//  }
+//
+//  abstract override def rollback(transformation: StoredTransformation) {
+//    logger.info(s"--Rollback transformation '${transformation.name}'")
+//    val elapsed = profile {
+//      super.rollback(transformation)
+//    }
+//    logger.info(s"--Transformation '${transformation.name}' successfully rollbacked in $elapsed ms")
+//  }
+//
+//  abstract override def update(transformation: LocalTransformation) {
+//    logger.info(s"--Update transformation '${transformation.name}'")
+//    val elapsed = profile {
+//      super.update(transformation)
+//    }
+//    logger.info(s"--Transformation '${transformation.name}' successfully updated in $elapsed ms")
+//  }
 
 }

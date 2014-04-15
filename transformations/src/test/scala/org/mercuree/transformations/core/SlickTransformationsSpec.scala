@@ -20,17 +20,17 @@ import org.scalatest.FlatSpec
 import scala.slick.driver.H2Driver
 import scala.slick.jdbc.JdbcBackend.{Database, Session}
 import scala.slick.jdbc.{StaticQuery => Sql}
-import java.sql.SQLException
+import Database.dynamicSession
 
 /**
- * [[SlickTransformations]] test spec.
+ * [[SlickStoredTransformations]] test spec.
  *
  * @author Alexander Valyugin
  */
 class SlickTransformationsSpec extends FlatSpec {
 
-  class TransformationsPack(val localTransformations: List[LocalTransformation])
-    extends SlickTransformations with LoggedTransformations {
+  class TestTransformations(override val localTransformations: List[Transformation])
+    extends Transformations with LocalTransformations with SlickStoredTransformations {
     val profile = H2Driver
     val db = Database.forURL("jdbc:h2:mem:test", driver = "org.h2.Driver")
   }
@@ -53,62 +53,51 @@ class SlickTransformationsSpec extends FlatSpec {
 
   val db = Database.forURL("jdbc:h2:mem:test", driver = "org.h2.Driver")
 
-  "Disabled transformations" should "not be applied" in {
-    val local = LocalTransformation("test", InsertPersonSql, "", false)
-    val pack = new TransformationsPack(List(local))
+  "Transformations table" should "be created if missing" in {
+    val pack = new TestTransformations(List())
 
-    db.withSession {
-      implicit session: Session =>
-        Sql.updateNA(TestTableSql).execute
-        pack.accomplish
-        val count = Sql.queryNA[Int](CountPersonsSql).first
-        assert(count == 0)
-    }
+    pack.run
   }
 
-  "Disabled transformations" should "be rolled back if had been applied previously" in {
-    val local1 = LocalTransformation("test", InsertPersonSql, DeletePersonSql)
-    val local2 = LocalTransformation("test", InsertPersonSql, DeletePersonSql, false)
-    val pack1 = new TransformationsPack(List(local1))
-    val pack2 = new TransformationsPack(List(local2))
 
-    db.withSession {
-      implicit session: Session =>
-        Sql.updateNA(TestTableSql).execute
-        pack1.accomplish
-        pack2.accomplish
-        val count = Sql.queryNA[Int](CountPersonsSql).first
-        assert(count == 0)
+  "Disabled transformation" should "be rolled back if had been applied previously" in {
+    val local1 = LocalTransformation("test", InsertPersonSql, DeletePersonSql)
+    val local2 = DisabledTransformation("test")
+    val pack1 = new TestTransformations(List(local1))
+    val pack2 = new TestTransformations(List(local2))
+
+    db.withDynSession {
+      Sql.updateNA(TestTableSql).execute
+      pack1.run
+      assert(1 == Sql.queryNA[Int](CountPersonsSql).first)
+      assert(pack1.findById("test").isDefined)
+      pack2.run
+      assert(0 == Sql.queryNA[Int](CountPersonsSql).first)
     }
   }
 
   "Transformations running in transaction" should "be applied properly" in {
     val local = LocalTransformation("test", InsertPersonSql + FailingSql, "")
-    val pack = new TransformationsPack(List(local))
+    val pack = new TestTransformations(List(local))
 
-    db.withSession {
-      implicit session: Session =>
-        Sql.updateNA(TestTableSql).execute
-        pack.accomplish
-        val count = Sql.queryNA[Int](CountPersonsSql).first
-        assert(count == 0)
+    db.withDynSession {
+      Sql.updateNA(TestTableSql).execute
+      pack.run
+      assert(0 == Sql.queryNA[Int](CountPersonsSql).first)
     }
   }
 
-  "Removed transformations" should "be rolled back if had been applied previously" in {
-    val local = LocalTransformation("test", InsertPersonSql, DeletePersonSql)
-    val pack1 = new TransformationsPack(List(local))
-    val pack2 = new TransformationsPack(List())
-
-    db.withSession {
-      implicit session: Session =>
-        Sql.updateNA(TestTableSql).execute
-        pack1.accomplish
-        pack2.accomplish
-        val count = Sql.queryNA[Int](CountPersonsSql).first
-        assert(count == 0)
-        assert(pack2.storedTransformations.isEmpty)
-    }
-  }
+//  "Removed transformations" should "be rolled back if had been applied previously" in {
+//    val local = LocalTransformation("test", InsertPersonSql, DeletePersonSql)
+//    val pack1 = new StoredTransformationsPack(List(local))
+//    val pack2 = new StoredTransformationsPack(List())
+//
+//    db.withSession { implicit session: Session =>
+//      Sql.updateNA(TestTableSql).execute
+//      pack1.run
+//      pack2.run
+//      assert(0 == Sql.queryNA[Int](CountPersonsSql).first)
+//    }
+//  }
 
 }
