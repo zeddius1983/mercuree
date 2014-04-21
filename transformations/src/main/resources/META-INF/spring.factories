@@ -1,2 +1,2 @@
 org.springframework.boot.autoconfigure.EnableAutoConfiguration=\
-org.mercuree.transformations.spring.config.EvolutionAutoConfiguration
+org.mercuree.transformations.plugin.spring.TransformationsAutoConfiguration

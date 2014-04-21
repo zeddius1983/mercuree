@@ -14,28 +14,24 @@
  * limitations under the License.
  */
 
-package org.mercuree.transformations.spring.config;
+package org.mercuree.transformations.plugin.spring;
 
+import org.mercuree.transformations.core.TransformationsMaster;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.BeansException;
-import org.springframework.beans.factory.BeanFactory;
-import org.springframework.beans.factory.BeanFactoryAware;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.AutoConfigureAfter;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration;
-import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
+import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.core.env.ConfigurableEnvironment;
+import org.springframework.core.io.support.PathMatchingResourcePatternResolver;
 import org.springframework.core.io.support.ResourcePatternResolver;
-import org.springframework.jdbc.core.JdbcTemplate;
 
 import javax.annotation.PostConstruct;
 import javax.sql.DataSource;
 import java.util.List;
-import java.util.Properties;
 
 /**
  * TODO: javadoc
@@ -45,31 +41,28 @@ import java.util.Properties;
 @Configuration
 @ConditionalOnBean(DataSource.class)
 @AutoConfigureAfter(DataSourceAutoConfiguration.class)
-@EnableConfigurationProperties(org.mercuree.transformations.spring.config.EvolutionConfigurationProperties.class)
-public class EvolutionAutoConfiguration {
+@EnableConfigurationProperties(TransformationsConfigurationProperties.class)
+public class TransformationsAutoConfiguration {
 
-    private static final Logger logger = LoggerFactory.getLogger(EvolutionAutoConfiguration.class);
-
-    @Autowired
-    private EvolutionConfigurationProperties properties;
+    private static final Logger logger = LoggerFactory.getLogger(TransformationsAutoConfiguration.class);
 
     @Autowired
-    private List<DataSource> dataSources;
+    private ApplicationContext applicationContext;
 
     @Autowired
-    private ResourcePatternResolver resourcePatternResolver;
+    private TransformationsConfigurationProperties properties;
+
+    @Autowired
+    private DataSource dataSource;
 
     @PostConstruct
     public void init() {
-        // @DependsOn, @Estimated, @NeverChanges, @Update, @Rollback
-        if (!properties.isEnabled()) {
-            logger.info("Database transformations is currently disabled");
-            return;
-        }
-        System.out.println(resourcePatternResolver);
-        System.out.println(dataSources);
-        System.out.println(properties.getDataSources());
+        logger.info("Datasource: {}", properties.getDataSource());
+//        DataSource dataSource = applicationContext.getBean(properties.getDataSource(), DataSource.class);
+        logger.info("DataSource found {}", dataSource);
+        TransformationsMaster master = new TransformationsMaster(dataSource);
         logger.info("Starting database transformations");
+        master.run();
         logger.info("Database transformations is finished");
     }
 

@@ -16,31 +16,12 @@
 
 package org.mercuree.transformations.core
 
-import org.scalatest.FlatSpec
-import scala.util.Random
+import scala.slick.driver.JdbcDriver
 
 /**
- * [[VersionAndPathOrdering]] test spec.
+ * Slick 'generic' driver. Should be enough because the particular database and slick
+ * specific featured are not widely used.
  *
  * @author Alexander Valyugin
  */
-class VersionAndPathOrderingSpec extends FlatSpec {
-
-  "Paths" should "be in the right order" in {
-    val expectedPaths = List(
-      "init.sql",
-      "1.0.0/table.sql",
-      "1.0.0/common/clean.sql",
-      "1.0.1/alter.sql",
-      "2.1/new.sql",
-      "2013.2.1/drop.sql",
-      "2013.2.1/erase.sql",
-      "common/houseKeep.sql"
-    )
-    val actualPaths = Random.shuffle(expectedPaths) sorted VersionAndPathOrdering
-
-    expectedPaths zip actualPaths foreach(it => assert(it._1 == it._2))
-  }
-
-
-}
+object GenericDriver extends JdbcDriver

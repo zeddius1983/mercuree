@@ -14,12 +14,11 @@
 # limitations under the License.
 #
 
-mercuree.evolution:
+mercuree.transformations:
   enabled: true
   controlTableName: dbEvolution
-  dataSources:
-    db1: [/evolution/3.4, /evolution/3.5]
-    db2: /evolution/3.6
+  dataSource: testdb
+  transformationsPath: transformations
 server:
   port: 8081
 management:
@@ -28,3 +27,6 @@ management:
 #  file: target/log.out
 service:
   message: Awesome Message
+spring.datasource:
+  url: jdbc:h2:mem:test
+  driverClassName: org.h2.Driver

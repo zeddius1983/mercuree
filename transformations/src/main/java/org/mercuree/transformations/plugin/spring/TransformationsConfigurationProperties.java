@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package org.mercuree.transformations.spring.config;
+package org.mercuree.transformations.plugin.spring;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.context.properties.ConfigurationProperties;
@@ -32,14 +32,16 @@ import java.util.Set;
  *
  * @author Alexander Valyugin
  */
-@ConfigurationProperties(name = "mercuree.transformations")
-public class EvolutionConfigurationProperties {
+@ConfigurationProperties("mercuree.transformations")
+public class TransformationsConfigurationProperties {
 
     private boolean enabled = true;
 
     private String controlTableName = "EVOLUTION_INFO";
 
-    private Map<String, List<String>> dataSources;
+    private String dataSource;
+
+    private String transformationsPath;
 
     public boolean isEnabled() {
         return enabled;
@@ -57,8 +59,19 @@ public class EvolutionConfigurationProperties {
         this.controlTableName = controlTableName;
     }
 
-    public Map<String, List<String>> getDataSources() { return dataSources; }
+    public String getDataSource() {
+        return dataSource;
+    }
 
-    public void setDataSources(Map<String, List<String>> dataSources) { this.dataSources = dataSources; }
+    public void setDataSource(String dataSource) {
+        this.dataSource = dataSource;
+    }
 
+    public String getTransformationsPath() {
+        return transformationsPath;
+    }
+
+    public void setTransformationsPath(String transformationsPath) {
+        this.transformationsPath = transformationsPath;
+    }
 }

@@ -71,9 +71,10 @@ trait SlickStoredTransformations extends StoredTransformations {
     }
   }
 
-  //  override def all(): Seq[StoredTransformation] = storedTransformations.list
+//  override def all(): Seq[StoredTransformation] = storedTransformations.list
 
-  override def findAllExcept(names: Set[String]): Seq[StoredTransformation] = ???
+  override def findAllExcept(ids: Set[String]): Seq[StoredTransformation] =
+    storedTransformations.filterNot(_.name.inSet(ids)).list
 
   override def findById(name: String): Option[StoredTransformation] =
     storedTransformations.where(_.name === name).firstOption

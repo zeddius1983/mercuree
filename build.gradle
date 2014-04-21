@@ -2,7 +2,6 @@ subprojects {
     apply plugin: 'scala'
 
     repositories {
-        mavenLocal()
         mavenCentral()
         maven { url 'http://repo.spring.io/milestone' }
     }
@@ -10,7 +9,7 @@ subprojects {
     ext {
         aspectjVersion    = "1.7.4"
         springVersion     = "4.0.2.RELEASE"
-        springBootVersion = "1.0.0.RC1"
+        springBootVersion = "1.0.1.RELEASE"
         groovyVersion     = "2.2.1"
         scalaVersion      = "2.10.3"
         junitVersion      = "4.11"

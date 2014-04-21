@@ -63,8 +63,8 @@ class LocalTransformationSpec extends FlatSpec {
 
     transformation match {
       case t: LocalTransformation =>
-        assert("id" == t.id)
-        assert(t.updateScript ==
+        assert("id" === t.id)
+        assert(t.updateScript ===
           """
             |CREATE TABLE User (
             |    id bigint(20) NOT NULL AUTO_INCREMENT,
@@ -75,9 +75,9 @@ class LocalTransformationSpec extends FlatSpec {
             |    PRIMARY KEY (id)
             |);
           """.stripMargin.trim)
-        assert("0E5BEB7344F44C053094BEAD4411B621" == t.updateScriptHash.toUpperCase)
-        assert("DROP TABLE User;" == t.rollbackScript)
-        assert("BCB8140B058A8CA2F5DCA6BF6B26B4B9" == t.rollbackScriptHash.toUpperCase)
+        assert("0E5BEB7344F44C053094BEAD4411B621" === t.updateScriptHash.toUpperCase)
+        assert("DROP TABLE User;" === t.rollbackScript)
+        assert("BCB8140B058A8CA2F5DCA6BF6B26B4B9" === t.rollbackScriptHash.toUpperCase)
       case _ => assert(false, "Should be instanceof LocalTransformation")
     }
 

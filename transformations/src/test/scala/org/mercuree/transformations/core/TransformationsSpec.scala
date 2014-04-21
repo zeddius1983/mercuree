@@ -58,6 +58,7 @@ class TransformationsSpec extends FlatSpec with MockFactory {
 
     import pack.mocked._
     (findById _).when("test").returns(None)
+    (findAllExcept _).when(Set("test")).returns(Nil)
 
     pack.run
 
@@ -74,6 +75,7 @@ class TransformationsSpec extends FlatSpec with MockFactory {
 
     import pack.mocked._
     (findById _).when("test").returns(None)
+    (findAllExcept _).when(Set("test")).returns(Nil)
 
     pack.run
 
@@ -90,6 +92,7 @@ class TransformationsSpec extends FlatSpec with MockFactory {
 
     import pack.mocked._
     (findById _).when("test").returns(Some(stored))
+    (findAllExcept _).when(Set("test")).returns(Nil)
 
     pack.run
 
@@ -99,61 +102,85 @@ class TransformationsSpec extends FlatSpec with MockFactory {
       (delete _).verify(stored)
     }
   }
-  //
-  //  "Locally removed transformation" should "be rolled back" in {
-  //    val stored = StoredTransformation("test", "", "", "", "")
-  //    val pack = new TransformationsPack(List(), List(stored))
-  //
-  //    pack.run
-  //
-  //    pack.mockApply.verify(*).never
-  //    pack.mockUpdate.verify(*).never
-  //    pack.mockRollback.verify(stored).once
-  //  }
-  //
-  //  "Modified transformation" should "be rolled back and applied again" in {
-  //    val local = LocalTransformation("test", "A", "")
-  //    val stored = StoredTransformation("test", "", "", "", local.sqlRollbackHash)
-  //    val pack = new TransformationsPack(List(local), List(stored))
-  //
-  //    pack.run
-  //
-  //    inSequence {
-  //      pack.mockRollback.verify(stored).once
-  //      pack.mockApply.verify(local).once
-  //    }
-  //    pack.mockUpdate.verify(*).never
-  //  }
-  //
-  //  "On rollback script modification it" should "only update the stored transformation" in {
-  //    val local = LocalTransformation("test", "", "A")
-  //    val stored = StoredTransformation("test", "", local.sqlUpdateHash, "", "")
-  //    val pack = new TransformationsPack(List(local), List(stored))
-  //
-  //    pack.run
-  //
-  //    pack.mockApply.verify(*).never
-  //    pack.mockRollback.verify(*).never
-  //    pack.mockUpdate.verify(local).once
-  //  }
-  //
-  //  "Transformations" should "be applied in the given order" in {
-  //    val local1 = LocalTransformation("test1", "", "")
-  //    val local2 = LocalTransformation("test2", "", "")
-  //    val local3 = LocalTransformation("test3", "", "")
-  //    val stored1 = StoredTransformation("test2", "", "A", "", "")
-  //    val stored2 = StoredTransformation("test4", "", "", "", "")
-  //    val pack = new TransformationsPack(List(local3, local2, local1), List(stored1, stored2))
-  //
-  //    pack.run
-  //
-  //    inSequence {
-  //      pack.mockApply.verify(local3).once
-  //      pack.mockRollback.verify(stored1).once
-  //      pack.mockApply.verify(local2).once
-  //      pack.mockApply.verify(local1).once
-  //      pack.mockRollback.verify(stored2).once
-  //    }
-  //  }
+
+  "Locally removed transformation" should "be rolled back" in {
+    val stored = StoredTransformation("test", "", "", "rollback", "")
+    val pack = new TestTransformations(List())
+
+    import pack.mocked._
+    (findById _).when("test").returns(Some(stored))
+    (findAllExcept _).when(Set[String]()).returns(List(stored))
+
+    pack.run
+
+    inSequence {
+      (findById _).verify("test")
+      (applyScript _).verify("rollback")
+      (delete _).verify(stored)
+    }
+  }
+
+  "Modified transformation" should "be rolled back and applied again" in {
+    val local = LocalTransformation("test", "update", "")
+    val stored = StoredTransformation("test", "", "", "rollback", local.rollbackScriptHash)
+    val pack = new TestTransformations(List(local))
+
+    import pack.mocked._
+    (findById _).when("test").returns(Some(stored))
+    (findAllExcept _).when(Set("test")).returns(Nil)
+
+    pack.run
+
+    inSequence {
+      (findById _).verify("test")
+      (applyScript _).verify("rollback")
+      (applyScript _).verify("update")
+      (update _).verify(local)
+    }
+  }
+
+  "If rollback script modified it" should "only update the stored transformation" in {
+    val local = LocalTransformation("test", "", "A")
+    val stored = StoredTransformation("test", "", local.updateScriptHash, "", "")
+    val pack = new TestTransformations(List(local))
+
+    import pack.mocked._
+    (findById _).when("test").returns(Some(stored))
+    (findAllExcept _).when(Set("test")).returns(Nil)
+
+    pack.run
+
+    inSequence {
+      (findById _).verify("test")
+      (update _).verify(local)
+    }
+  }
+
+  "Transformations" should "be applied in the given order" in {
+    val local1 = LocalTransformation("test1", "update1", "")
+    val local2 = LocalTransformation("test2", "update2", "")
+    val stored = StoredTransformation("test3", "", "", "rollback", "")
+    val pack = new TestTransformations(List(local2, local1))
+
+    import pack.mocked._
+    (findById _).when("test1").returns(None)
+    (findById _).when("test2").returns(None)
+    (findById _).when("test3").returns(Some(stored))
+    (findAllExcept _).when(Set("test1", "test2")).returns(List(stored))
+
+    pack.run
+
+    inSequence {
+      (findById _).verify("test2")
+      (applyScript _).verify("update2")
+      (insert _).verify(local2)
+      (findById _).verify("test1")
+      (applyScript _).verify("update1")
+      (insert _).verify(local1)
+      (findById _).verify("test3")
+      (applyScript _).verify("rollback")
+      (delete _).verify(stored)
+    }
+  }
 
 }

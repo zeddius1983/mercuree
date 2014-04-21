@@ -242,12 +242,15 @@ trait LocalTransformations {
  *
  * @author Alexander Valyugin
  */
-trait Transformations {
-  this: LocalTransformations with StoredTransformations =>
+trait Transformations {this: LocalTransformations with StoredTransformations =>
 
   private final val logger = LoggerFactory.getLogger(getClass)
 
-  def apply(local: LocalTransformation): Unit = transactional {
+  import System.{currentTimeMillis => currentTime}
+
+  private def profile[R](f: => R, t: Long = currentTime) = { f; currentTime - t }
+
+  private def apply(local: LocalTransformation): Unit = transactional {
     val storedOption = findById(local.id)
     storedOption match {
       case Some(stored) if local.updateScriptHash != stored.updateScriptHash =>
@@ -262,18 +265,37 @@ trait Transformations {
     }
   }
 
-  /**
-   * Rollbacks the disabled transformation if it has already been applied.
-   *
-   * @param disabled transformation to rollback.
-   */
-  def rollback(disabled: DisabledTransformation): Unit = transactional {
-    val storedOption = findById(disabled.id)
+  protected def tryApply(local: LocalTransformation): Unit = {
+    try {
+      logger.info(s"Applying [${local.id}]...")
+      val elapsed = profile(apply(local))
+      logger.info(s"[${local.id}] applied in $elapsed ms")
+    } catch {
+      case e: Exception => logger.error(s"Failed to apply [${local.id}] due to:\n ${e.getMessage}")
+    }
+  }
+
+  protected def onApply(local: LocalTransformation): Unit = tryApply(local)
+
+  private def rollback(transformation: Transformation): Unit = transactional {
+    val storedOption = findById(transformation.id)
     storedOption map { stored =>
       applyScript(stored.rollbackScript)
       delete(stored)
     }
   }
+
+  protected def tryRollback(transformation: Transformation): Unit = {
+    try {
+      logger.info(s"Rolling back [${transformation.id}]...")
+      val elapsed = profile(rollback(transformation))
+      logger.info(s"[${transformation.id}] rolled back in $elapsed ms")
+    } catch {
+      case e: Exception => logger.error(s"Failed to rollback [${transformation.id}}] due to:\n ${e.getMessage}")
+    }
+  }
+
+  protected def onRollback(transformation: Transformation): Unit = tryRollback(transformation)
 
   /**
    * Runs transformations.
@@ -281,22 +303,21 @@ trait Transformations {
   def run {
     val locals = localTransformations
     transform {
+      // First apply local transformations as ordered in the list
       locals.foreach {
         case SkippedTransformation(id) => logger.debug(s"Transformation [$id] skipped")
-        case disabled@DisabledTransformation(id) =>
-          logger.info(s"Transformation [$id] is disabled")
-          try {
-            rollback(disabled)
-          } catch {
-            case e: Exception => logger.error(s"Failed to rollback [$id] due to:\n ${e.getMessage}")
-          }
+        case disabled: DisabledTransformation =>
+          logger.debug(s"Transformation [${disabled.id}] is disabled")
+          onRollback(disabled)
         case local: LocalTransformation =>
-          logger.info(s"Transformation [${local.id}] is found")
-          try {
-            apply(local)
-          } catch {
-            case e: Exception => logger.error(s"Failed to apply [${local.id}] due to:\n ${e.getMessage}")
-          }
+          logger.debug(s"Transformation [${local.id}] is found")
+          onApply(local)
+      }
+
+      // Second rollback transformations missing locally
+      findAllExcept(locals.map(_.id).toSet).foreach { stored =>
+        logger.debug(s"Transformation [${stored.id}] is missing")
+        onRollback(stored)
       }
     }
   }

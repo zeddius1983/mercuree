@@ -53,12 +53,9 @@ class SlickTransformationsSpec extends FlatSpec {
 
   val db = Database.forURL("jdbc:h2:mem:test", driver = "org.h2.Driver")
 
-  "Transformations table" should "be created if missing" in {
-    val pack = new TestTransformations(List())
+  private def prepareTestTable(): Unit = Sql.updateNA(TestTableSql).execute
 
-    pack.run
-  }
-
+  private def countPersons(): Int = Sql.queryNA[Int](CountPersonsSql).first
 
   "Disabled transformation" should "be rolled back if had been applied previously" in {
     val local1 = LocalTransformation("test", InsertPersonSql, DeletePersonSql)
@@ -67,12 +64,12 @@ class SlickTransformationsSpec extends FlatSpec {
     val pack2 = new TestTransformations(List(local2))
 
     db.withDynSession {
-      Sql.updateNA(TestTableSql).execute
+      prepareTestTable
       pack1.run
-      assert(1 == Sql.queryNA[Int](CountPersonsSql).first)
+      assert(1 == countPersons)
       assert(pack1.findById("test").isDefined)
       pack2.run
-      assert(0 == Sql.queryNA[Int](CountPersonsSql).first)
+      assert(0 == countPersons)
     }
   }
 
@@ -81,23 +78,24 @@ class SlickTransformationsSpec extends FlatSpec {
     val pack = new TestTransformations(List(local))
 
     db.withDynSession {
-      Sql.updateNA(TestTableSql).execute
+      prepareTestTable
       pack.run
-      assert(0 == Sql.queryNA[Int](CountPersonsSql).first)
+      assert(0 == countPersons)
     }
   }
 
-//  "Removed transformations" should "be rolled back if had been applied previously" in {
-//    val local = LocalTransformation("test", InsertPersonSql, DeletePersonSql)
-//    val pack1 = new StoredTransformationsPack(List(local))
-//    val pack2 = new StoredTransformationsPack(List())
-//
-//    db.withSession { implicit session: Session =>
-//      Sql.updateNA(TestTableSql).execute
-//      pack1.run
-//      pack2.run
-//      assert(0 == Sql.queryNA[Int](CountPersonsSql).first)
-//    }
-//  }
+  "Removed transformations" should "be rolled back if had been applied previously" in {
+    val local = LocalTransformation("test", InsertPersonSql, DeletePersonSql)
+    val pack1 = new TestTransformations(List(local))
+    val pack2 = new TestTransformations(List())
+
+    db.withDynSession {
+      prepareTestTable
+      pack1.run
+      assert(1 == countPersons)
+      pack2.run
+      assert(0 == countPersons)
+    }
+  }
 
 }

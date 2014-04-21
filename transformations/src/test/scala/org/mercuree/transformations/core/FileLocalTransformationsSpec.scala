@@ -18,25 +18,41 @@ package org.mercuree.transformations.core
 
 import org.scalatest.FlatSpec
 import java.io.File
+import scala.util.Random
 
 /**
- * [[ResourceLocalTransformations]] test spec.
+ * [[FileLocalTransformations]] test.
  *
  * @author Alexander Valyugin
  */
-class FilePathTransformationsSpec extends FlatSpec {
+class FileLocalTransformationsSpec extends FlatSpec {
 
-  class LocalTransformationsPack(val transformationsDirectory: String) extends ResourceLocalTransformations
+  class TestTransformations(val transformationsPath: String) extends FileLocalTransformations
+
+  "Paths" should "follow in the given order" in {
+    val expectedPaths = List(
+      "init.sql",
+      "1.0.0/table.sql",
+      "1.0.0/common/clean.sql",
+      "1.0.1/alter.sql",
+      "2.1/new.sql",
+      "2.1/1.0/some.sql",
+      "2.1/2/another.sql",
+      "2013.2.1/drop.sql",
+      "2013.2.1/erase.sql",
+      "2014/duplicate.sql",
+      "assembly/ddl.sql",
+      "common/houseKeep.sql",
+      "common/dev/cleanup.sql"
+    )
+    val actualPaths = Random.shuffle(expectedPaths) sorted FilePathOrdering
+
+    expectedPaths zip actualPaths foreach (it => assert(it._1 === it._2))
+  }
 
   "Local transformations" should "be loaded from the classpath" in {
-    val pack = new LocalTransformationsPack("/transformations")
+    val pack = new TestTransformations("/transformations")
     println(pack.localTransformations)
-
-//    pack.listResources()
-//    println("create.sql".split(File.separator).toList)
-//    val Decimal = """(\d+)(\.\d+)*""".r
-//    for (s <- Decimal findAllIn "Versions 2013.1.2, 4.1.0.13, 4.05, 1.2.0.14, 2014, 7.sql")
-//      println(s.replaceAll("\\.", "").toLong)
   }
 
 }
