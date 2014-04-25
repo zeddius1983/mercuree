@@ -19,6 +19,8 @@ package org.mercuree.transformations.core
 import org.scalatest.FlatSpec
 import java.io.File
 import scala.util.Random
+import java.net.URL
+import scala.annotation.tailrec
 
 /**
  * [[FileLocalTransformations]] test.
@@ -27,7 +29,7 @@ import scala.util.Random
  */
 class FileLocalTransformationsSpec extends FlatSpec {
 
-  class TestTransformations(val transformationsPath: String) extends FileLocalTransformations
+  class TestTransformations(override val transformationsPath: String) extends FileLocalTransformations
 
   "Paths" should "follow in the given order" in {
     val expectedPaths = List(
@@ -52,7 +54,12 @@ class FileLocalTransformationsSpec extends FlatSpec {
 
   "Local transformations" should "be loaded from the classpath" in {
     val pack = new TestTransformations("/transformations")
-    println(pack.localTransformations)
+    val local = pack.localTransformations
+
+    assert(3 === local.length)
+    assert("1.0/create_table.sql" === local(0).id)
+    assert("2.0/add_column.xml" === local(1).id)
+    assert("3.0/add_data.sql" === local(2).id)
   }
 
 }

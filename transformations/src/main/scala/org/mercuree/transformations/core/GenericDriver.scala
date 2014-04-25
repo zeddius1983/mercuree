@@ -19,8 +19,7 @@ package org.mercuree.transformations.core
 import scala.slick.driver.JdbcDriver
 
 /**
- * Slick 'generic' driver. Should be enough because the particular database and slick
- * specific featured are not widely used.
+ * Slick 'generic' driver. Should be enough because the plain sql is mostly used.
  *
  * @author Alexander Valyugin
  */

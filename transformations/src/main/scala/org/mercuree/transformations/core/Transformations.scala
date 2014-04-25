@@ -21,6 +21,7 @@ import java.net.URL
 import java.security.MessageDigest
 import org.slf4j.{Logger, LoggerFactory}
 import scala.language.implicitConversions
+import java.io.File
 
 /**
  * Represents a database change with a unique name.
@@ -73,19 +74,31 @@ case class LocalTransformation(id: String, updateScript: String, rollbackScript:
 
 object LocalTransformation {
 
-  //  private val IdAttr = "@id"
+  //  private val IdAttr = "@id" TODO: need it?
   private val EnabledAttr = "@enabled"
+  private val RunOnChangeAttr = "@runOnChange"
+  private val RunInTransaction = "@transaction"
+
   private val RootTag = "transformation"
-  // TODO: make it work with upper case
   private val UpdateTag = "update"
   private val RollbackTag = "rollback"
   // TODO: private val AuthorAttr = "@author" ?
-  // TODO: private val RunOnChangeAttr = "@runOnChange"
-  // TODO: private val DependsOn = "@dependsOn" ?
-  // TODO: private val RunInTransaction = "@transaction" ?
+  // TODO: private val DependsOn = "@dependsOn" do we need it?
 
   implicit def localToStored(local: LocalTransformation) = StoredTransformation(
     local.id, local.updateScript, local.updateScriptHash, local.rollbackScript, local.rollbackScriptHash)
+
+  /**
+   * Loads the transformation from the given file.
+   *
+   * @param file to load from.
+   * @param id transformation id.
+   * @return transformation object.
+   */
+  def fromFile(file: File, id: String): Transformation = {
+    val source = Source.fromFile(file).mkString
+    parseSQL(source, id)
+  }
 
   /**
    * Loads the transformation from the given url.
@@ -102,7 +115,7 @@ object LocalTransformation {
   /**
    * Parses the sql source to obtain a transformation object. Valid sql text to parse may look like this:
    * {{{
-   * --<transformation name="create_table_script" enabled="true">
+   * --<transformation>
    *   --<update>
    *     -- script body here
    *   --</update>
@@ -269,6 +282,8 @@ trait Transformations {this: LocalTransformations with StoredTransformations =>
     try {
       logger.info(s"Applying [${local.id}]...")
       val elapsed = profile(apply(local))
+      // TODO: instead of miliseconds consider human readable time like
+      // TODO: 245ms, 2342ms, 11s, 1m 12s, 13m, 1h 5m
       logger.info(s"[${local.id}] applied in $elapsed ms")
     } catch {
       case e: Exception => logger.error(s"Failed to apply [${local.id}] due to:\n ${e.getMessage}")

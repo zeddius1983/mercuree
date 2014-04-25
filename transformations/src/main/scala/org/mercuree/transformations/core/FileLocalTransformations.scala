@@ -16,7 +16,6 @@
 
 package org.mercuree.transformations.core
 
-import org.springframework.core.io.support.{ResourcePatternResolver, PathMatchingResourcePatternResolver}
 import scala.annotation.tailrec
 import java.io.File
 import scala.util.{Failure, Try}
@@ -88,25 +87,37 @@ trait FileLocalTransformations extends LocalTransformations {
 
   private final val logger = LoggerFactory.getLogger(getClass)
 
-  private final val SqlPattern = "/**/*.sql"
+  protected val FilePattern = """.*\.(sql$|xml$)""".r
 
   /**
    * Provide with local transformations path.
+   *
+   * @todo Make to work with jar files.
    */
   val transformationsPath: String
 
-  // TODO: remove Spring dependency
-  private val resolver: ResourcePatternResolver = new PathMatchingResourcePatternResolver
+  private def listFiles(rootDir: File): List[File] = {
+    @tailrec
+    def listFiles(files: List[File], result: List[File]): List[File] = files match {
+      case Nil => result
+      case head :: tail if head.isDirectory =>
+        val t = Option(head.listFiles).map(_.toList ::: tail).getOrElse(tail)
+        listFiles(t, result)
+      case head :: tail if head.isFile =>
+        val r = if (FilePattern.findFirstIn(head.getPath).isDefined) head :: result else result
+        listFiles(tail, r)
+    }
+    listFiles(List(rootDir), Nil)
+  }
 
   def localTransformations: List[Transformation] = {
-    val rootPath = resolver.getResource(transformationsPath).getFile.getAbsolutePath
-    val resources = resolver.getResources(transformationsPath + SqlPattern).toList
+    val rootPath = Option(getClass.getResource(transformationsPath))
+      .map(_.getFile).getOrElse(transformationsPath)
+    val files = listFiles(new File(rootPath))
     implicit val sortedBy = FilePathOrdering
-    resources map { resource =>
-      val url = resource.getURL
-      val relativePath = resource.getFile.getAbsolutePath.substring(rootPath.length)
-      val id = if (relativePath.startsWith(File.separator)) relativePath.substring(1) else relativePath
-      Try(LocalTransformation.fromURL(url, id)) recoverWith {
+    files map { file =>
+      val id = file.getPath.substring(rootPath.length + 1)
+      Try(LocalTransformation.fromFile(file, id)) recoverWith {
         case e: Exception =>
           logger.error(s"Unabled to load [${id}] due to:\n ${e.getMessage}")
           Failure(e)

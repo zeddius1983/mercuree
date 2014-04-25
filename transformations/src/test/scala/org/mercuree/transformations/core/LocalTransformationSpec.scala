@@ -20,7 +20,7 @@ import org.scalatest.FlatSpec
 import scala.Some
 
 /**
- * [[LocalTransformation]] test spec.
+ * [[LocalTransformation]] test.
  *
  * @author Alexander Valyugin
  */
@@ -58,7 +58,7 @@ class LocalTransformationSpec extends FlatSpec {
   }
 
   "A transformation" should "be loaded from the url correctly" in {
-    val url = getClass.getResource("/transformations/create_table.sql")
+    val url = getClass.getResource("/transformations/1.0/create_table.sql")
     val transformation = LocalTransformation.fromURL(url, "id")
 
     transformation match {
