@@ -17,10 +17,7 @@
 package org.mercuree.transformations.core
 
 import org.scalatest.FlatSpec
-import java.io.File
 import scala.util.Random
-import java.net.URL
-import scala.annotation.tailrec
 
 /**
  * [[FileLocalTransformations]] test.

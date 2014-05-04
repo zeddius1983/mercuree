@@ -16,7 +16,7 @@
 
 package org.mercuree.transformations.core
 
-import scala.slick.driver.JdbcProfile
+import scala.slick.driver.{JdbcDriver, JdbcProfile}
 import scala.slick.jdbc.JdbcBackend._
 import scala.slick.jdbc.{StaticQuery => Sql}
 import scala.language.implicitConversions
@@ -34,7 +34,7 @@ trait SlickStoredTransformations extends StoredTransformations {
 
   val transformationsTableName = "transformations"
 
-  val profile: JdbcProfile
+  val profile: JdbcProfile = GenericDriver
 
   val db: Database
 
@@ -54,6 +54,8 @@ trait SlickStoredTransformations extends StoredTransformations {
 
     def sqlRollbackHash = column[String]("rollback_script_hash", O.DBType("char(128)"))
 
+    // TODO: add timestamp
+    
     def * = (name, sqlUpdate, sqlUpdateHash, sqlRollback, sqlRollbackHash) <>(StoredTransformation.fromTuple, StoredTransformation.unapply)
   }
 
@@ -98,3 +100,10 @@ trait SlickStoredTransformations extends StoredTransformations {
   override def transactional[A](f: => A): A = dynamicSession.withTransaction(f)
 
 }
+
+/**
+ * Slick 'generic' driver. Should be enough because the plain sql is mostly used.
+ *
+ * @author Alexander Valyugin
+ */
+object GenericDriver extends JdbcDriver

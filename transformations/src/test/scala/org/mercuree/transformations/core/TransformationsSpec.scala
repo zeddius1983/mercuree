@@ -139,6 +139,41 @@ class TransformationsSpec extends FlatSpec with MockFactory {
     }
   }
 
+  "Modified transformation" should "not be applied if not set to run on change" in {
+    val local = LocalTransformation("test", "update", "", runOnChange = false)
+    val stored = StoredTransformation("test", "", "", "rollback", local.rollbackScriptHash)
+    val pack = new TestTransformations(List(local))
+
+    import pack.mocked._
+    (findById _).when("test").returns(Some(stored))
+    (findAllExcept _).when(Set("test")).returns(Nil)
+
+    pack.run
+
+    inSequence {
+      (findById _).verify("test")
+    }
+  }
+
+  "Run always transformation" should "be rolled back and applied again" in {
+    val local = LocalTransformation("test", "update", "rollback", runAlways = true)
+    val stored = StoredTransformation("test", "update", local.updateScriptHash, "rollback", local.rollbackScriptHash)
+    val pack = new TestTransformations(List(local))
+
+    import pack.mocked._
+    (findById _).when("test").returns(Some(stored))
+    (findAllExcept _).when(Set("test")).returns(Nil)
+
+    pack.run
+
+    inSequence {
+      (findById _).verify("test")
+      (applyScript _).verify("rollback")
+      (applyScript _).verify("update")
+      (update _).verify(local)
+    }
+  }
+
   "If rollback script modified it" should "only update the stored transformation" in {
     val local = LocalTransformation("test", "", "A")
     val stored = StoredTransformation("test", "", local.updateScriptHash, "", "")

@@ -31,7 +31,6 @@ class SlickTransformationsSpec extends FlatSpec {
 
   class TestTransformations(override val localTransformations: List[Transformation])
     extends Transformations with LocalTransformations with SlickStoredTransformations {
-    val profile = H2Driver
     val db = Database.forURL("jdbc:h2:mem:test", driver = "org.h2.Driver")
   }
 

@@ -22,6 +22,8 @@ import java.security.MessageDigest
 import org.slf4j.{Logger, LoggerFactory}
 import scala.language.implicitConversions
 import java.io.File
+import scala.util.Try
+import scala.xml.NodeSeq
 
 /**
  * Represents a database change with a unique name.
@@ -65,7 +67,9 @@ case class DisabledTransformation(id: String) extends Transformation
 /**
  * A user requested transformation to apply.
  */
-case class LocalTransformation(id: String, updateScript: String, rollbackScript: String) extends ScriptedTransformation {
+case class LocalTransformation(id: String, updateScript: String, rollbackScript: String,
+                               runOnChange: Boolean = true, runAlways: Boolean = false,
+                               runInTransaction: Boolean = true) extends ScriptedTransformation {
   val updateScriptHash = md5(updateScript)
   val rollbackScriptHash = md5(rollbackScript)
 
@@ -77,7 +81,8 @@ object LocalTransformation {
   //  private val IdAttr = "@id" TODO: need it?
   private val EnabledAttr = "@enabled"
   private val RunOnChangeAttr = "@runOnChange"
-  private val RunInTransaction = "@transaction"
+  private val RunInTransactionAttr = "@runInTransaction" // TODO: what to do with rollback? Do we need it at all?
+  private val RunAlwaysAttr = "@runAlways"
 
   private val RootTag = "transformation"
   private val UpdateTag = "update"
@@ -146,10 +151,12 @@ object LocalTransformation {
       throw TransformationException(s"Transformation root element must be <$RootTag> tag")
     }
 
-    lazy val enabled = (xml \ EnabledAttr).text.trim match {
-      case "false" => false
-      case _ => true
-    }
+    def toBoolean(seq: NodeSeq, default: Boolean = true) = seq.map(_.text.trim.toBoolean).headOption.getOrElse(default)
+
+    lazy val enabled = toBoolean(xml \ EnabledAttr)
+    lazy val runOnChange = toBoolean(xml \ RunOnChangeAttr)
+    lazy val runInTransaction = toBoolean(xml \ RunInTransactionAttr)
+    lazy val runAlways = toBoolean(xml \ RunAlwaysAttr, false)
 
     // Update script is mandatory
     lazy val sqlUpdate = (xml \\ UpdateTag).text.trim match {
@@ -165,7 +172,7 @@ object LocalTransformation {
     else if (!enabled)
       DisabledTransformation(id)
     else
-      LocalTransformation(id, sqlUpdate, sqlRollback)
+      LocalTransformation(id, sqlUpdate, sqlRollback, runOnChange, runAlways, runInTransaction)
   }
 }
 
@@ -263,16 +270,32 @@ trait Transformations {this: LocalTransformations with StoredTransformations =>
 
   private def profile[R](f: => R, t: Long = currentTime) = { f; currentTime - t }
 
-  private def apply(local: LocalTransformation): Unit = transactional {
+  private def apply(local: LocalTransformation): Unit = transactional(local.runInTransaction) {
     val storedOption = findById(local.id)
     storedOption match {
-      case Some(stored) if local.updateScriptHash != stored.updateScriptHash =>
-        applyScript(stored.rollbackScript)
-        applyScript(local.updateScript)
-        update(local)
-      case Some(stored) if local.rollbackScriptHash != stored.rollbackScriptHash =>
-        update(local)
+      case Some(stored) =>
+        def rollbackAndUpdate(): Unit = {
+          applyScript(stored.rollbackScript)
+          applyScript(local.updateScript)
+          update(local)
+        }
+
+        if (local.runAlways) {
+          logger.info(s"> [${local.id}] is set to run always")
+          rollbackAndUpdate
+        } else if (local.updateScriptHash != stored.updateScriptHash) {
+          logger.info(s"> [${local.id}] update script has been modified")
+          if (local.runOnChange) {
+            rollbackAndUpdate
+          } else {
+            logger.warn(s"> [${local.id}] is set not to run on change!")
+          }
+        } else if (local.rollbackScriptHash != stored.rollbackScriptHash) {
+          logger.info(s"> [${local.id}] rollback script has been modified")
+          update(local)
+        }
       case None =>
+        logger.info(s"> [${local.id}] is ran for the first time")
         applyScript(local.updateScript)
         insert(local)
     }
@@ -280,11 +303,11 @@ trait Transformations {this: LocalTransformations with StoredTransformations =>
 
   protected def tryApply(local: LocalTransformation): Unit = {
     try {
-      logger.info(s"Applying [${local.id}]...")
+      logger.info(s"Applying [${local.id}]")
       val elapsed = profile(apply(local))
       // TODO: instead of miliseconds consider human readable time like
       // TODO: 245ms, 2342ms, 11s, 1m 12s, 13m, 1h 5m
-      logger.info(s"[${local.id}] applied in $elapsed ms")
+      logger.info(s"[${local.id}] processed in $elapsed ms")
     } catch {
       case e: Exception => logger.error(s"Failed to apply [${local.id}] due to:\n ${e.getMessage}")
     }
@@ -292,6 +315,7 @@ trait Transformations {this: LocalTransformations with StoredTransformations =>
 
   protected def onApply(local: LocalTransformation): Unit = tryApply(local)
 
+  // TODO: think if we need to control transactional here
   private def rollback(transformation: Transformation): Unit = transactional {
     val storedOption = findById(transformation.id)
     storedOption map { stored =>
@@ -302,15 +326,17 @@ trait Transformations {this: LocalTransformations with StoredTransformations =>
 
   protected def tryRollback(transformation: Transformation): Unit = {
     try {
-      logger.info(s"Rolling back [${transformation.id}]...")
+      logger.info(s"Rolling back [${transformation.id}]")
       val elapsed = profile(rollback(transformation))
-      logger.info(s"[${transformation.id}] rolled back in $elapsed ms")
+      logger.info(s"[${transformation.id}] processed in $elapsed ms")
     } catch {
       case e: Exception => logger.error(s"Failed to rollback [${transformation.id}}] due to:\n ${e.getMessage}")
     }
   }
 
   protected def onRollback(transformation: Transformation): Unit = tryRollback(transformation)
+
+  private def transactional[A](enabled: Boolean)(f: => A): Unit = if (enabled) transactional(f) else f
 
   /**
    * Runs transformations.
